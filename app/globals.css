@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f3f0ea;
+  --foreground: #1c2430;
+  --paper: #f3f0ea;
+  --card: #ffffff;
+  --ink: #1c2430;
+  --muted: #8a847c;
+  --line: rgba(28, 36, 48, 0.08);
+  --sage: #4f6f5c;
+  --lavender: #7d7398;
+  --sky: #6a849c;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+body {
+  background:
+    radial-gradient(ellipse 70% 36% at 0% -8%, rgba(28, 36, 48, 0.035), transparent 55%),
+    var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  letter-spacing: -0.012em;
+}
+
+::selection {
+  background: rgba(28, 36, 48, 0.12);
+  color: #1c2430;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(28, 36, 48, 0.18) transparent;
+}
