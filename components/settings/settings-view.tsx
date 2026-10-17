@@ -2,6 +2,7 @@
 
 import { useAccount } from "@/components/account-provider";
 import { PageHeader } from "@/components/layout/page-header";
+import { ThemeChoice } from "@/components/layout/theme-toggle";
 import { useRoutine } from "@/components/routine-provider";
 import { Surface } from "@/components/ui/surface";
 import { exportAmbientSettings } from "@/lib/ambient-audio";
@@ -89,10 +90,20 @@ export function SettingsView() {
         }
       />
 
+      <Surface className="mb-4 max-w-2xl p-5">
+        <h2 className="text-base font-medium tracking-[-0.02em] text-ink">화면</h2>
+        <p className="mt-1 text-sm leading-6 text-muted">
+          {account.user
+            ? "밝은 테마와 어두운 테마 중에서 고릅니다. 이 브라우저와 계정에 저장됩니다."
+            : "밝은 테마와 어두운 테마 중에서 고릅니다. 이 브라우저에 저장됩니다."}
+        </p>
+        <ThemeChoice />
+      </Surface>
+
       {routine.ready ? (
         <Surface className="max-w-2xl p-5">
-          <h2 className="text-base font-medium tracking-[-0.02em] text-[#1c2430]">데이터 백업</h2>
-          <p className="mt-1 text-sm leading-6 text-[#8a847c]">
+          <h2 className="text-base font-medium tracking-[-0.02em] text-ink">데이터 백업</h2>
+          <p className="mt-1 text-sm leading-6 text-muted">
             프로필, 습관, 할 일, 포모도로, 달성 기록, 한 줄 회고, 사이드바, 배경 소리, 집중 알림 설정이 포함됩니다.
           </p>
 
@@ -100,7 +111,7 @@ export function SettingsView() {
             <button
               type="button"
               onClick={exportData}
-              className="inline-flex items-center gap-2 rounded-full bg-[#1c2430] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#2a3342] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/25"
+              className="inline-flex items-center gap-2 rounded-full bg-fill px-4 py-2 text-sm font-medium text-on-fill transition hover:bg-fill-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/25"
             >
               <Download className="size-4" />
               JSON 내보내기
@@ -108,7 +119,7 @@ export function SettingsView() {
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white px-4 py-2 text-sm text-[#1c2430] transition hover:border-[#1c2430]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/20"
+              className="inline-flex items-center gap-2 rounded-full border border-line bg-card px-4 py-2 text-sm text-ink transition hover:border-ink/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20"
             >
               <Upload className="size-4" />
               JSON 가져오기
@@ -127,8 +138,8 @@ export function SettingsView() {
           </div>
 
           {pending ? (
-            <div className="mt-5 rounded-2xl border border-amber-400/30 bg-[#f3f0ea] p-4">
-              <p className="text-sm text-[#8a5a32]">
+            <div className="mt-5 rounded-2xl border border-amber-400/30 bg-paper p-4">
+              <p className="text-sm text-warn">
                 {account.user
                   ? `${pending.profile.name}의 백업에서 회고와 화면 설정을 계정에 반영합니다. 습관과 할 일은 바꾸지 않습니다.`
                   : `${pending.profile.name}의 백업으로 현재 데이터를 바꿉니다. 이 브라우저의 기존 기록은 덮어씁니다.`}
@@ -137,14 +148,14 @@ export function SettingsView() {
                 <button
                   type="button"
                   onClick={confirmImport}
-                  className="rounded-full bg-[#c4846a] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-100"
+                  className="rounded-full bg-clay px-4 py-2 text-sm font-semibold text-on-ink transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20"
                 >
                   복원
                 </button>
                 <button
                   type="button"
                   onClick={() => setPending(null)}
-                  className="rounded-full border border-black/[0.08] px-4 py-2 text-sm text-[#1c2430] transition hover:border-[#1c2430]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/20"
+                  className="rounded-full border border-line px-4 py-2 text-sm text-ink transition hover:border-ink/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20"
                 >
                   취소
                 </button>
@@ -153,18 +164,18 @@ export function SettingsView() {
           ) : null}
 
           {message ? (
-            <p className="mt-4 text-sm text-[#3d5f7a]" role="status">
+            <p className="mt-4 text-sm text-accent" role="status">
               {message}
             </p>
           ) : null}
           {error ? (
-            <p className="mt-4 text-sm text-[#9a4d55]" role="alert">
+            <p className="mt-4 text-sm text-danger" role="alert">
               {error}
             </p>
           ) : null}
         </Surface>
       ) : (
-        <div className="h-56 max-w-2xl animate-pulse rounded-2xl border border-black/[0.06] bg-[#f3f0ea]" />
+        <div className="h-56 max-w-2xl animate-pulse rounded-2xl border border-line bg-paper" />
       )}
     </div>
   );

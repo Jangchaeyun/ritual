@@ -15,9 +15,15 @@ export function supabaseEnv() {
 let browser: SupabaseClient | null = null;
 
 export function supabaseFetch(input: RequestInfo | URL, init?: RequestInit) {
-  const timeout = AbortSignal.timeout(8000);
-  const signal = init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
-  return fetch(input, { ...init, signal });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  const onAbort = () => controller.abort();
+  init?.signal?.addEventListener("abort", onAbort, { once: true });
+  if (init?.signal?.aborted) controller.abort();
+  return fetch(input, { ...init, signal: controller.signal }).finally(() => {
+    clearTimeout(timer);
+    init?.signal?.removeEventListener("abort", onAbort);
+  });
 }
 
 export function createSupabaseBrowserClient() {

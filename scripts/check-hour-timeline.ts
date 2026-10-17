@@ -1,4 +1,4 @@
-import { buildHourTimeline, formatHm, recordedMinutes, seoulHourStart, timelineMinutes } from "@/lib/hour-timeline";
+import { buildHourTimeline, formatHm, hourPaints, recordedMinutes, seoulHourStart, timelineMinutes, type DaySpan } from "@/lib/hour-timeline";
 import type { PomodoroSession } from "@/lib/types";
 
 function session(partial: Partial<PomodoroSession> & Pick<PomodoroSession, "id" | "todoId" | "startedAt" | "completedAt">): PomodoroSession {
@@ -105,5 +105,21 @@ const openRow = openHours[10].rows[0];
 if (!openRow || openRow.end != null || openRow.minutes != null) throw new Error("진행 중 종료 시각을 만들면 안 됩니다");
 if (formatHm(openHours[9].rows[0].end ?? 0) !== "10:00") throw new Error("진행 중 기록의 지난 시간대 종료가 잘못됐습니다");
 if (openHours[9].rows[0].key === openHours[10].rows[0].key) throw new Error("같은 기록이 한 시간에 중복됐습니다");
+
+const paintSpan: DaySpan = {
+  key: "paint",
+  todoId: "todo",
+  title: "기록",
+  start: at("2026-10-12", 11, 12),
+  end: at("2026-10-12", 12, 27),
+  open: false,
+};
+const atEleven = hourPaints([paintSpan], "2026-10-12", 11)[0];
+if (!atEleven || Math.abs(atEleven.startRatio - 12 / 60) > 1e-9) throw new Error("11:12가 10분 칸으로 당겨졌습니다");
+if (Math.abs(atEleven.endRatio - 1) > 1e-9) throw new Error("시간 경계가 잘렸습니다");
+const atTwelve = hourPaints([paintSpan], "2026-10-12", 12)[0];
+if (!atTwelve || Math.abs(atTwelve.startRatio) > 1e-9 || Math.abs(atTwelve.endRatio - 27 / 60) > 1e-9) {
+  throw new Error("끝 시각이 10분 칸으로 맞춰졌습니다");
+}
 
 console.log("hour timeline checks passed");

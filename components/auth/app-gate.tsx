@@ -12,7 +12,10 @@ export function AppGate({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (account.user && pathname === "/login") router.replace("/");
+    if (!account.user || pathname !== "/login") return;
+    const next = new URLSearchParams(window.location.search).get("next");
+    const safe = next && next.startsWith("/") && !next.startsWith("//") && !next.includes("\\") ? next : "/";
+    router.replace(safe);
   }, [account.user, pathname, router]);
 
   if (pathname === "/auth/confirmed") return children;

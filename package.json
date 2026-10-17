@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "node --require ./scripts/patch-win-readlink.cjs ./node_modules/next/dist/bin/next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "check": "npx --yes tsx scripts/check-streak.ts && npx --yes tsx scripts/check-hour-timeline.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.87",

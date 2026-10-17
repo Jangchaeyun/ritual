@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * 습관, 할 일, 공부·근무 타이머, 회고를 화면 전체에서 같이 씁니다.
+ * 로그인 상태의 기록은 Supabase에 두고, 반복 요일과 테마처럼 계정 설정은 preferences에 저장합니다.
+ */
+
 import { useAccount } from "@/components/account-provider";
 import { useActivity } from "@/hooks/use-activity";
 import { useHabits } from "@/hooks/use-habits";
@@ -17,6 +22,21 @@ import {
   sampleUi,
 } from "@/lib/sample-data";
 import { reconcileHistory, seoulDateKey } from "@/lib/analytics";
+import {
+  clearTodoDone,
+  forgetRepeat,
+  getRepeatBook,
+  hydrateRepeatBook,
+  markTodoDone,
+  occursOn,
+  setHabitDay,
+  setRepeat,
+  subscribeRepeat,
+  type RepeatSchedule,
+} from "@/lib/repeat";
+import { consecutiveStreak } from "@/lib/streak";
+import { subscribeTheme } from "@/lib/theme";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 import {
   applyAccountPreferences,
   currentAccountPreferences,
@@ -40,7 +60,7 @@ import { applyAmbientSettings, pauseAmbient, playAmbient, subscribeAmbient } fro
 import type { RitualBackup } from "@/lib/backup";
 import { applyFocusAlertEnabled, notifyFocusEnded, subscribeFocusAlert } from "@/lib/focus-alert";
 import { playSessionChime, primeSessionAudio } from "@/lib/session-chime";
-import { focusSessionTodoId, isTrackedFocus, type FocusPurpose } from "@/lib/study-timer";
+import { focusSessionTodoId, isTrackedFocus, studyTargetId, type FocusPurpose } from "@/lib/study-timer";
 import { subscribeTimerColors } from "@/lib/timer-colors";
 import {
   isHabitDone,
@@ -57,11 +77,13 @@ import {
   reviveReflections,
   reviveTodos,
   MAX_REFLECTION_LENGTH,
+  clampHabitTarget,
   type ReflectionLog,
   type HabitCategory,
   type HistoryState,
   type Todo,
   type TodoPriority,
+  type TodoStatus,
   type PomodoroPhase,
   type PomodoroSession,
   type PomodoroState,
@@ -97,11 +119,22 @@ type RoutineContextValue = {
   remainingSec: number;
   progress: number;
   toggleHabit: (id: string) => void;
-  addHabit: (input: { title: string; category: HabitCategory; targetCount: number }) => void;
+  addHabit: (input: {
+    title: string;
+    category: HabitCategory;
+    targetCount: number;
+    schedule: RepeatSchedule;
+  }) => void;
   removeHabit: (id: string) => void;
   cycleTodoStatus: (id: string) => void;
   toggleTodoDone: (id: string) => void;
-  addTodo: (input: { title: string; category: HabitCategory; priority?: TodoPriority }) => void;
+  addTodo: (input: {
+    title: string;
+    category: HabitCategory;
+    priority?: TodoPriority;
+    schedule: RepeatSchedule;
+  }) => void;
+  updateTodo: (id: string, input: { title: string; category: HabitCategory }) => Promise<boolean>;
   removeTodo: (id: string) => void;
   reorderTodos: (from: number, to: number) => void;
   toggleSidebar: () => void;
@@ -114,6 +147,14 @@ type RoutineContextValue = {
   setPomodoroLengths: (focusMinutes: number, breakMinutes: number) => void;
   loggedSessions: PomodoroSession[];
   recordStudySession: (input: { todoId: string; purpose?: FocusPurpose; startedAt: number; endedAt: number }) => void;
+  updateStudySession: (input: {
+    id: string;
+    todoId: string;
+    purpose?: FocusPurpose;
+    startedAt: number;
+    endedAt: number;
+  }) => Promise<boolean>;
+  removeStudySession: (id: string) => Promise<boolean>;
   importRoutine: (backup: RitualBackup) => void;
   setReflection: (date: string, text: string) => void;
   syncWarning: string | null;
@@ -128,6 +169,12 @@ const historyOptions = { validate: isHistoryState, revive: reviveHistory };
 const reflectionOptions = { validate: isReflectionLog, revive: reviveReflections };
 
 const RoutineContext = createContext<RoutineContextValue | null>(null);
+
+function withTodoStatus(todos: Todo[], id: string, status: TodoStatus) {
+  if (status === "todo") clearTodoDone(id);
+  else markTodoDone(id, seoulDateKey(Date.now()));
+  return todos.map((todo) => (todo.id === id ? { ...todo, status } : todo));
+}
 
 function isRemoteSession(value: unknown): value is PomodoroSession {
   if (!value || typeof value !== "object") return false;
@@ -166,8 +213,8 @@ export function RoutineProvider({ children }: { children: ReactNode }) {
   const pomodoroRunning = pomodoro.value.running;
   const pomodoroRef = useRef(pomodoro.value);
   const todosRef = useRef(todos.value);
+  const sessionsRef = useRef<PomodoroSession[]>([]);
   const profileRef = useRef(profile.value);
-  const streakApplied = useRef(false);
   const sessionsApplied = useRef(false);
   const prefsApplied = useRef<string | null>(null);
   const seenAccount = useRef<string | null | undefined>(undefined);
@@ -176,7 +223,6 @@ export function RoutineProvider({ children }: { children: ReactNode }) {
   const [prefsReady, setPrefsReady] = useState(false);
   if (seenAccount.current !== accountUserId) {
     seenAccount.current = accountUserId;
-    streakApplied.current = false;
     sessionsApplied.current = false;
     prefsApplied.current = null;
     if (sessionsReady) setSessionsReady(false);
@@ -383,17 +429,19 @@ export function RoutineProvider({ children }: { children: ReactNode }) {
   );
 
   const addHabit = useCallback(
-    (input: { title: string; category: HabitCategory; targetCount: number }) => {
+    (input: { title: string; category: HabitCategory; targetCount: number; schedule: RepeatSchedule }) => {
       const title = input.title.trim();
       if (!title) return;
-      const targetCount = Math.min(7, Math.max(1, Math.round(input.targetCount)));
+      const targetCount = clampHabitTarget(input.targetCount);
+      const id = crypto.randomUUID();
+      setRepeat("habits", id, input.schedule);
       if (remote) {
-        void habitRemote.add({ title, category: input.category, targetCount });
+        void habitRemote.add({ id, title, category: input.category, targetCount });
         return;
       }
       setHabits((prev) => [
         ...prev,
-        { id: crypto.randomUUID(), title, category: input.category, targetCount, completedCount: 0 },
+        { id, title, category: input.category, targetCount, completedCount: 0 },
       ]);
     },
     [habitRemote.add, remote, setHabits],
@@ -401,6 +449,7 @@ export function RoutineProvider({ children }: { children: ReactNode }) {
 
   const removeHabit = useCallback(
     (id: string) => {
+      forgetRepeat("habits", id);
       if (remote) {
         void habitRemote.remove(id);
         return;
@@ -415,39 +464,44 @@ export function RoutineProvider({ children }: { children: ReactNode }) {
       if (remote) {
         const current = todosRef.current.find((todo) => todo.id === id);
         if (!current) return;
-        const status = nextTodoStatus(current.status);
-        todosRef.current = todosRef.current.map((todo) => (todo.id === id ? { ...todo, status } : todo));
-        void todoRemote.patch(id, { status });
+        const next = withTodoStatus(todosRef.current, id, nextTodoStatus(current.status));
+        todosRef.current = next;
+        const status = next.find((todo) => todo.id === id)?.status;
+        if (status) void todoRemote.patch(id, { status });
         return;
       }
-      setTodos((prev) =>
-        prev.map((todo) => (todo.id === id ? { ...todo, status: nextTodoStatus(todo.status) } : todo)),
-      );
+      setTodos((prev) => {
+        const current = prev.find((todo) => todo.id === id);
+        if (!current) return prev;
+        return withTodoStatus(prev, id, nextTodoStatus(current.status));
+      });
     },
     [remote, setTodos, todoRemote.patch],
   );
 
   const toggleTodoDone = useCallback(
     (id: string) => {
+      const nextStatus = (status: TodoStatus) => (status === "done" ? "todo" : "done");
       if (remote) {
         const current = todosRef.current.find((todo) => todo.id === id);
         if (!current) return;
-        const status = current.status === "done" ? "todo" : "done";
-        todosRef.current = todosRef.current.map((todo) => (todo.id === id ? { ...todo, status } : todo));
-        void todoRemote.patch(id, { status });
+        const next = withTodoStatus(todosRef.current, id, nextStatus(current.status));
+        todosRef.current = next;
+        const status = next.find((todo) => todo.id === id)?.status;
+        if (status) void todoRemote.patch(id, { status });
         return;
       }
-      setTodos((prev) =>
-        prev.map((todo) =>
-          todo.id === id ? { ...todo, status: todo.status === "done" ? "todo" : "done" } : todo,
-        ),
-      );
+      setTodos((prev) => {
+        const current = prev.find((todo) => todo.id === id);
+        if (!current) return prev;
+        return withTodoStatus(prev, id, nextStatus(current.status));
+      });
     },
     [remote, setTodos, todoRemote.patch],
   );
 
   const addTodo = useCallback(
-    (input: { title: string; category: HabitCategory; priority?: TodoPriority }) => {
+    (input: { title: string; category: HabitCategory; priority?: TodoPriority; schedule: RepeatSchedule }) => {
       const title = input.title.trim();
       if (!title) return;
       const todo: Todo = {
@@ -458,6 +512,7 @@ export function RoutineProvider({ children }: { children: ReactNode }) {
         focusMinutes: 0,
         category: input.category,
       };
+      setRepeat("todos", todo.id, input.schedule);
       if (remote) {
         todosRef.current = [...todosRef.current, todo];
         void todoRemote.add(todo);
@@ -468,8 +523,21 @@ export function RoutineProvider({ children }: { children: ReactNode }) {
     [remote, setTodos, todoRemote.add],
   );
 
+  const updateTodo = useCallback(
+    async (id: string, input: { title: string; category: HabitCategory }) => {
+      const title = input.title.trim();
+      if (!title || !todosRef.current.some((todo) => todo.id === id)) return false;
+      const next = { title, category: input.category };
+      if (remote) return (await todoRemote.patch(id, next)) === true;
+      setTodos((prev) => prev.map((todo) => (todo.id === id ? { ...todo, ...next } : todo)));
+      return true;
+    },
+    [remote, setTodos, todoRemote.patch],
+  );
+
   const removeTodo = useCallback(
     (id: string) => {
+      forgetRepeat("todos", id);
       if (remote) {
         todosRef.current = todosRef.current.filter((todo) => todo.id !== id);
         void todoRemote.remove(id);
@@ -663,6 +731,110 @@ export function RoutineProvider({ children }: { children: ReactNode }) {
     [remote, setTodos, todoRemote.patch, updatePomodoro],
   );
 
+  const shiftFocusMinutes = useCallback(
+    (changes: { todoId: string | null; delta: number }[]) => {
+      const totals = new Map<string, number>();
+      for (const change of changes) {
+        const target = studyTargetId(change.todoId);
+        if (!target || change.delta === 0) continue;
+        totals.set(target, (totals.get(target) ?? 0) + change.delta);
+      }
+      for (const [id, delta] of totals) {
+        if (delta === 0) continue;
+        if (remote) {
+          const current = todosRef.current.find((todo) => todo.id === id);
+          if (!current) continue;
+          const focusMinutes = Math.max(0, current.focusMinutes + delta);
+          todosRef.current = todosRef.current.map((todo) => (todo.id === id ? { ...todo, focusMinutes } : todo));
+          void todoRemote.patch(id, { focusMinutes });
+        } else {
+          setTodos((list) =>
+            list.map((todo) => (todo.id === id ? { ...todo, focusMinutes: Math.max(0, todo.focusMinutes + delta) } : todo)),
+          );
+        }
+      }
+    },
+    [remote, setTodos, todoRemote.patch],
+  );
+
+  const writeSessionLocal = useCallback(
+    (session: PomodoroSession | null, id: string) => {
+      updatePomodoro((prev) => {
+        const rest = (prev.sessions ?? []).filter((item) => item.id !== id);
+        return { ...prev, sessions: session ? [session, ...rest] : rest };
+      });
+      if (session) activityRemote.replaceSession(session);
+      else activityRemote.removeSession(id);
+    },
+    [activityRemote.replaceSession, activityRemote.removeSession, updatePomodoro],
+  );
+
+  const updateStudySession = useCallback(
+    async (input: { id: string; todoId: string; purpose?: FocusPurpose; startedAt: number; endedAt: number }) => {
+      const previous = sessionsRef.current.find((session) => session.id === input.id);
+      const purpose = input.purpose ?? "study";
+      const recorded = recordedMinutes(input.startedAt, input.endedAt);
+      if (!previous || !input.todoId || recorded <= 0 || input.endedAt <= input.startedAt) return false;
+      const next: PomodoroSession = {
+        ...previous,
+        phase: "focus",
+        minutes: recorded,
+        todoId: focusSessionTodoId(purpose, input.todoId),
+        startedAt: input.startedAt,
+        completedAt: input.endedAt,
+      };
+      writeSessionLocal(next, previous.id);
+      const focusChanges = [
+        { todoId: previous.todoId, delta: -previous.minutes },
+        { todoId: next.todoId, delta: recorded },
+      ];
+      if (!remote) {
+        shiftFocusMinutes(focusChanges);
+        return true;
+      }
+      const response = await fetch("/api/pomodoro/sessions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: next.id,
+          todoId: next.todoId,
+          startedAt: input.startedAt,
+          completedAt: input.endedAt,
+        }),
+      }).catch(() => null);
+      if (response?.ok) {
+        shiftFocusMinutes(focusChanges);
+        return true;
+      }
+      writeSessionLocal(previous, previous.id);
+      return false;
+    },
+    [remote, shiftFocusMinutes, writeSessionLocal],
+  );
+
+  const removeStudySession = useCallback(
+    async (id: string) => {
+      const previous = sessionsRef.current.find((session) => session.id === id);
+      if (!previous) return false;
+      writeSessionLocal(null, id);
+      const focusChanges = [{ todoId: previous.todoId, delta: -previous.minutes }];
+      if (!remote) {
+        shiftFocusMinutes(focusChanges);
+        return true;
+      }
+      const response = await fetch(`/api/pomodoro/sessions?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(
+        () => null,
+      );
+      if (response?.ok) {
+        shiftFocusMinutes(focusChanges);
+        return true;
+      }
+      writeSessionLocal(previous, id);
+      return false;
+    },
+    [remote, shiftFocusMinutes, writeSessionLocal],
+  );
+
   const setReflections = reflections.setValue;
 
   const importRoutine = useCallback(
@@ -714,6 +886,7 @@ export function RoutineProvider({ children }: { children: ReactNode }) {
       setPrefsReady(true);
       return;
     }
+    hydrateRepeatBook();
     let cancelled = false;
     void loadAccountPreferences(accountUserId).then((prefs) => {
       if (cancelled) return;
@@ -768,14 +941,70 @@ export function RoutineProvider({ children }: { children: ReactNode }) {
     const unsubscribeFocus = subscribeFocusAlert(schedule);
     const unsubscribeLengths = subscribeTimerLengths(schedule);
     const unsubscribeColors = subscribeTimerColors(schedule);
+    const unsubscribeRepeat = subscribeRepeat(schedule);
+    const unsubscribeTheme = subscribeTheme(schedule);
     return () => {
       unsubscribeAmbient();
       unsubscribeFocus();
       unsubscribeLengths();
       unsubscribeColors();
+      unsubscribeRepeat();
+      unsubscribeTheme();
       window.clearTimeout(timer);
     };
   }, [accountUserId, prefsReady, remote, ui.value.sidebarCollapsed]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const roll = () => {
+      const today = seoulDateKey(Date.now());
+      if (getRepeatBook().habitDay !== today) {
+        setHabitDay(today);
+        if (!remote) {
+          setHabits((list) => {
+            if (list.every((habit) => habit.completedCount === 0)) return list;
+            return list.map((habit) => (habit.completedCount === 0 ? habit : { ...habit, completedCount: 0 }));
+          });
+        }
+      }
+      const todosNow = remote ? todosRef.current : null;
+      const applyLocal = (list: typeof todosRef.current) => {
+        let changed = false;
+        const next = list.map((todo) => {
+          if (todo.status === "todo") return todo;
+          const doneOn = getRepeatBook().todoDoneOn[todo.id];
+          if (!doneOn) {
+            markTodoDone(todo.id, today);
+            return todo;
+          }
+          if (doneOn === today) return todo;
+          changed = true;
+          clearTodoDone(todo.id);
+          return { ...todo, status: "todo" as const };
+        });
+        return changed ? next : list;
+      };
+      if (todosNow) {
+        for (const todo of todosNow) {
+          if (todo.status === "todo") continue;
+          const doneOn = getRepeatBook().todoDoneOn[todo.id];
+          if (!doneOn) {
+            markTodoDone(todo.id, today);
+            continue;
+          }
+          if (doneOn === today) continue;
+          void todoRemote.patch(todo.id, { status: "todo" }).then((saved) => {
+            if (saved) clearTodoDone(todo.id);
+          });
+        }
+      } else {
+        setTodos(applyLocal);
+      }
+    };
+    roll();
+    const id = window.setInterval(roll, 30_000);
+    return () => window.clearInterval(id);
+  }, [ready, remote, setHabits, setTodos, todoRemote.patch]);
 
   useEffect(() => {
     const user = account.user;
@@ -788,12 +1017,49 @@ export function RoutineProvider({ children }: { children: ReactNode }) {
     );
   }, [account.user, setProfile]);
 
+  const [repeatTick, setRepeatTick] = useState(0);
+  useEffect(() => subscribeRepeat(() => setRepeatTick((value) => value + 1)), []);
+  const savedStreak = useRef<number | null>(null);
   useEffect(() => {
-    if (!remote || !habitRemote.loaded || streakApplied.current) return;
-    streakApplied.current = true;
-    const streak = habitRemote.streak;
+    if (!remote || !habitRemote.loaded || !activityRemote.loaded || activityRemote.error) return;
+    const today = seoulDateKey(Date.now());
+    const logs = activityRemote.logs.flatMap((log) => {
+      const logDate = log.date.slice(0, 10);
+      if (logDate === today) return [];
+      return [{ habitId: log.habitId, logDate }];
+    });
+    for (const habit of habitRemote.habits) {
+      const count = Math.min(habit.targetCount, Math.max(0, habit.completedCount));
+      for (let index = 0; index < count; index += 1) {
+        logs.push({ habitId: habit.id, logDate: today });
+      }
+    }
+    const repeatBook = getRepeatBook();
+    const streak = consecutiveStreak(
+      habitRemote.habits.map((habit) => ({ id: habit.id, targetCount: habit.targetCount })),
+      logs,
+      today,
+      (habitId, date) => occursOn(repeatBook.habits[habitId], date),
+    );
     setProfile((prev) => (prev.streak === streak ? prev : { ...prev, streak }));
-  }, [habitRemote.loaded, habitRemote.streak, remote, setProfile]);
+    const profileId = account.user?.id;
+    if (!profileId || streak === habitRemote.streak || savedStreak.current === streak) return;
+    savedStreak.current = streak;
+    const supabase = createSupabaseBrowserClient();
+    if (!supabase) return;
+    void supabase.from("profiles").update({ streak, updated_at: new Date().toISOString() }).eq("id", profileId);
+  }, [
+    account.user?.id,
+    activityRemote.error,
+    activityRemote.loaded,
+    activityRemote.logs,
+    habitRemote.habits,
+    habitRemote.loaded,
+    habitRemote.streak,
+    remote,
+    repeatTick,
+    setProfile,
+  ]);
 
   useEffect(() => {
     if (!remote || !todoRemote.loaded) return;
@@ -851,6 +1117,7 @@ export function RoutineProvider({ children }: { children: ReactNode }) {
     for (const session of visiblePomodoro.sessions ?? []) merged.set(session.id, session);
     return [...merged.values()];
   }, [activityRemote.sessions, visiblePomodoro.sessions]);
+  sessionsRef.current = loggedSessions;
 
   const value = useMemo<RoutineContextValue>(
     () => ({
@@ -871,6 +1138,7 @@ export function RoutineProvider({ children }: { children: ReactNode }) {
       cycleTodoStatus,
       toggleTodoDone,
       addTodo,
+      updateTodo,
       removeTodo,
       reorderTodos,
       toggleSidebar,
@@ -883,12 +1151,15 @@ export function RoutineProvider({ children }: { children: ReactNode }) {
       setPomodoroLengths,
       loggedSessions,
       recordStudySession,
+      updateStudySession,
+      removeStudySession,
       importRoutine,
       setReflection,
     }),
     [
       addHabit,
       addTodo,
+      updateTodo,
       cycleTodoStatus,
       toggleTodoDone,
       removeTodo,
@@ -913,6 +1184,8 @@ export function RoutineProvider({ children }: { children: ReactNode }) {
       setPomodoroLengths,
       loggedSessions,
       recordStudySession,
+      updateStudySession,
+      removeStudySession,
       sessionNotice,
       setPomodoroPhase,
       skipPomodoroPhase,

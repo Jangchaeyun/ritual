@@ -4,9 +4,34 @@ import { useAccount } from "@/components/account-provider";
 import { addDays, seoulDateKey } from "@/lib/analytics";
 import type { HabitLogPoint } from "@/lib/remote-history";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { isMissingColumn } from "@/lib/supabase-error";
 import { getOrCreateProfileId } from "@/lib/supabase-profile";
 import type { PomodoroSession } from "@/lib/types";
 import { useCallback, useEffect, useState } from "react";
+
+async function loadSessions(
+  supabase: NonNullable<ReturnType<typeof createSupabaseBrowserClient>>,
+  profileId: string,
+  withStart: boolean,
+) {
+  const columns = withStart
+    ? "id, phase, minutes, todo_id, completed_at, started_at"
+    : "id, phase, minutes, todo_id, completed_at";
+  const pageSize = 1000;
+  const rows: unknown[] = [];
+  for (let from = 0; from < 20000; from += pageSize) {
+    const { data, error } = await supabase
+      .from("pomodoro_sessions")
+      .select(columns)
+      .eq("user_id", profileId)
+      .order("completed_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+    if (error) return { rows, error };
+    rows.push(...(data ?? []));
+    if (!data || data.length < pageSize) return { rows, error: null };
+  }
+  return { rows, error: null };
+}
 
 function toSession(value: unknown): PomodoroSession | null {
   if (!value || typeof value !== "object") return null;
@@ -55,32 +80,18 @@ export function useActivity() {
       return;
     }
     const since = addDays(seoulDateKey(Date.now()), -120);
-    const sinceUtc = `${addDays(since, -1)}T00:00:00.000Z`;
-    const sessionQuery = supabase
-      .from("pomodoro_sessions")
-      .select("id, phase, minutes, todo_id, completed_at, started_at")
+    const sessionResult = await loadSessions(supabase, profileId, true);
+    const { data: logRows, error: logError } = await supabase
+      .from("habit_logs")
+      .select("habit_id, log_date")
       .eq("user_id", profileId)
-      .gte("completed_at", sinceUtc)
-      .order("completed_at", { ascending: false })
-      .limit(500);
-    const [{ data: logRows, error: logError }, sessionResult] = await Promise.all([
-      supabase.from("habit_logs").select("habit_id, log_date").eq("user_id", profileId).gte("log_date", since),
-      sessionQuery,
-    ]);
-    let sessionRows: unknown[] | null = null;
+      .gte("log_date", since);
+    let sessionRows: unknown[] | null = sessionResult.rows;
     let sessionError: { message?: string; code?: string } | null = sessionResult.error;
-    if (sessionError && (sessionError.code === "42703" || sessionError.code === "PGRST204" || /started_at/i.test(sessionError.message ?? ""))) {
-      const retry = await supabase
-        .from("pomodoro_sessions")
-        .select("id, phase, minutes, todo_id, completed_at")
-        .eq("user_id", profileId)
-        .gte("completed_at", sinceUtc)
-        .order("completed_at", { ascending: false })
-        .limit(500);
-      sessionRows = retry.data;
+    if (sessionError && isMissingColumn(sessionError, "started_at")) {
+      const retry = await loadSessions(supabase, profileId, false);
+      sessionRows = retry.rows;
       sessionError = retry.error;
-    } else {
-      sessionRows = sessionResult.data;
     }
     if (logError || sessionError) {
       setError("달성 기록을 불러오지 못했습니다.");
@@ -118,5 +129,13 @@ export function useActivity() {
     });
   }, [enabled, reload]);
 
-  return { enabled, loaded, logs, sessions, error, reload };
+  const replaceSession = useCallback((session: PomodoroSession) => {
+    setSessions((list) => list.map((item) => (item.id === session.id ? session : item)));
+  }, []);
+
+  const removeSession = useCallback((id: string) => {
+    setSessions((list) => list.filter((item) => item.id !== id));
+  }, []);
+
+  return { enabled, loaded, logs, sessions, error, reload, replaceSession, removeSession };
 }

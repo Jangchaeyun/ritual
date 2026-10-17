@@ -1,29 +1,119 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
   --background: #f3f0ea;
   --foreground: #1c2430;
   --paper: #f3f0ea;
-  --card: #ffffff;
   --ink: #1c2430;
+  --ink-soft: #2a3342;
+  --on-ink: #ffffff;
+  --fill: #1c2430;
+  --on-fill: #ffffff;
+  --fill-soft: #2a3342;
+  --card: #ffffff;
+  --field: #faf8f5;
+  --soft: #6f6a64;
   --muted: #8a847c;
+  --faint: #b7b1a8;
+  --danger: #9a4d55;
+  --warn: #8a5a32;
+  --accent: #3d5f7a;
+  --clay: #c4846a;
+  --warm: #f6efe9;
   --line: rgba(28, 36, 48, 0.08);
-  --sage: #4f6f5c;
-  --lavender: #7d7398;
-  --sky: #6a849c;
-  color-scheme: light;
+  --wash: rgba(28, 36, 48, 0.045);
+  --grid: rgba(255, 255, 255, 0.7);
+  --overlay: rgba(28, 36, 48, 0.25);
+  --track: rgba(28, 36, 48, 0.12);
+  --glow: rgba(28, 36, 48, 0.035);
+  --glow-cool: #e7eef6;
+  --glow-lilac: #f0ecf8;
+  --selection: rgba(28, 36, 48, 0.12);
+  --scrollbar: rgba(28, 36, 48, 0.18);
+  --panel-shadow: 0 1px 1px rgba(28, 36, 48, 0.04), 0 16px 40px -28px rgba(28, 36, 48, 0.28);
+  --heat-empty: #f3f0ea;
+  --heat-0: #e7e2da;
+  --heat-1: #c9c3ba;
+  --heat-2: #8f897f;
+  --heat-3: #5c574f;
+  --heat-4: #1c2430;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #141311;
+  --foreground: #c8bfb4;
+  --paper: #141311;
+  --ink: #c8bfb4;
+  --ink-soft: #ddd4c8;
+  --on-ink: #171614;
+  --fill: #322e29;
+  --on-fill: #c8bfb4;
+  --fill-soft: #3f3a34;
+  --card: #221f1c;
+  --field: #2b2723;
+  --soft: #9c948a;
+  --muted: #7d766e;
+  --faint: #645e57;
+  --danger: #e3a3a8;
+  --warn: #e2b48a;
+  --accent: #9eb6c9;
+  --clay: #e0b09a;
+  --warm: #322820;
+  --line: rgba(243, 240, 234, 0.12);
+  --wash: rgba(243, 240, 234, 0.06);
+  --grid: rgba(243, 240, 234, 0.28);
+  --overlay: rgba(0, 0, 0, 0.55);
+  --track: rgba(243, 240, 234, 0.14);
+  --glow: rgba(243, 240, 234, 0.04);
+  --glow-cool: rgba(158, 182, 201, 0.08);
+  --glow-lilac: rgba(224, 176, 154, 0.08);
+  --selection: rgba(243, 240, 234, 0.18);
+  --scrollbar: rgba(243, 240, 234, 0.22);
+  --panel-shadow: 0 1px 1px rgba(0, 0, 0, 0.28), 0 16px 40px -28px rgba(0, 0, 0, 0.72);
+  --heat-empty: #141311;
+  --heat-0: #3a342c;
+  --heat-1: #6a6156;
+  --heat-2: #9a8f82;
+  --heat-3: #cfc6ba;
+  --heat-4: #a79e93;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-on-ink: var(--on-ink);
+  --color-fill: var(--fill);
+  --color-on-fill: var(--on-fill);
+  --color-fill-soft: var(--fill-soft);
+  --color-card: var(--card);
+  --color-field: var(--field);
+  --color-soft: var(--soft);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-danger: var(--danger);
+  --color-warn: var(--warn);
+  --color-accent: var(--accent);
+  --color-clay: var(--clay);
+  --color-warm: var(--warm);
+  --color-line: var(--line);
+  --color-wash: var(--wash);
+  --color-grid: var(--grid);
+  --color-overlay: var(--overlay);
+  --color-glow: var(--glow-cool);
+  --color-glow-2: var(--glow-lilac);
+  --shadow-panel: var(--panel-shadow);
   --font-sans: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
 }
 
 body {
   background:
-    radial-gradient(ellipse 70% 36% at 0% -8%, rgba(28, 36, 48, 0.035), transparent 55%),
+    radial-gradient(ellipse 70% 36% at 0% -8%, var(--glow), transparent 55%),
     var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
@@ -31,11 +121,11 @@ body {
 }
 
 ::selection {
-  background: rgba(28, 36, 48, 0.12);
-  color: #1c2430;
+  background: var(--selection);
+  color: var(--ink);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(28, 36, 48, 0.18) transparent;
+  scrollbar-color: var(--scrollbar) transparent;
 }

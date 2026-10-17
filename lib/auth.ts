@@ -66,10 +66,18 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   pages: {
-    signIn: "/",
     error: "/?calendar=1",
   },
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      try {
+        if (new URL(url).origin === new URL(baseUrl).origin) return url;
+      } catch {
+        return baseUrl;
+      }
+      return baseUrl;
+    },
     async jwt({ token, account }) {
       if (account?.access_token) {
         const expiresIn = typeof account.expires_in === "number" ? account.expires_in : 3600;

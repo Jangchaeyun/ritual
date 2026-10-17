@@ -3,6 +3,7 @@ import { IBM_Plex_Mono } from "next/font/google";
 import { AccountProvider } from "@/components/account-provider";
 import { AppGate } from "@/components/auth/app-gate";
 import { AuthProvider } from "@/components/auth-provider";
+import { ThemeBoot } from "@/components/layout/theme-toggle";
 import { RoutineProvider } from "@/components/routine-provider";
 import "./globals.css";
 
@@ -43,19 +44,26 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: "#f3f0ea",
-  colorScheme: "light",
+  colorScheme: "light dark",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ko" className={`${plexMono.variable} h-full antialiased`}>
+    <html lang="ko" className={`${plexMono.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
         <link
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
         />
       </head>
-      <body className="min-h-full bg-[#f3f0ea] font-sans text-[#1c2430]">
+      <body className="min-h-full bg-paper font-sans text-ink">
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'try{if(localStorage.getItem("ritual:theme")==="dark"){document.documentElement.dataset.theme="dark";document.documentElement.style.colorScheme="dark"}}catch(e){}',
+          }}
+        />
+        <ThemeBoot />
         <AuthProvider>
           <AccountProvider>
             <RoutineProvider>

@@ -7,10 +7,13 @@ import { matchesBoardFilter, type BoardFilter } from "@/lib/board-filter";
 import { Surface } from "@/components/ui/surface";
 import { categoryStyles } from "@/lib/labels";
 import { cn } from "@/lib/cn";
+import { seoulDateKey } from "@/lib/analytics";
+import { defaultSchedule, occursOn, setRepeat, subscribeRepeat, getRepeatBook, getRepeatServerBook } from "@/lib/repeat";
+import { RepeatMenu } from "@/components/ui/repeat-fields";
 import { isHabitDone, type Habit, type HabitCategory } from "@/lib/types";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ListChecks, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 function FlameBurst({ token }: { token: number }) {
   if (token === 0) return null;
@@ -51,12 +54,22 @@ export function HabitChecklist({
   delay?: number;
 }) {
   const { habits, syncWarning, toggleHabit, removeHabit } = useRoutine();
+  const repeat = useSyncExternalStore(subscribeRepeat, getRepeatBook, getRepeatServerBook);
+  const [today, setToday] = useState("");
   const [open, setOpen] = useState(false);
   const [bursts, setBursts] = useState<Record<string, number>>({});
   const [boardFilter, setBoardFilter] = useState<BoardFilter>("all");
+  useEffect(() => {
+    const tick = () => setToday(seoulDateKey(Date.now()));
+    tick();
+    const id = window.setInterval(tick, 30_000);
+    return () => window.clearInterval(id);
+  }, []);
   const visible = habits.filter((habit) => {
     if (category !== "all" && habit.category !== category) return false;
-    return matchesBoardFilter(habit.category, boardFilters ? boardFilter : "all");
+    if (!matchesBoardFilter(habit.category, boardFilters ? boardFilter : "all")) return false;
+    if (!manage && today && !occursOn(repeat.habits[habit.id], today)) return false;
+    return true;
   });
   const done = visible.filter((habit) => isHabitDone(habit)).length;
   const ratio = visible.length === 0 ? 0 : done / visible.length;
@@ -72,25 +85,25 @@ export function HabitChecklist({
     <Surface delay={delay} className="flex h-full flex-col p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-black/[0.04] text-[#1c2430]">
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-wash text-ink">
             <ListChecks className="size-4" />
           </span>
           <div>
-            <h2 className="text-base font-medium tracking-[-0.02em] text-[#1c2430]">오늘의 습관 체크리스트</h2>
-            <p className="mt-0.5 text-xs text-[#8a847c]">목표 횟수를 채우면 스트릭이 올라갑니다</p>
-            {syncWarning ? <p className="mt-1 text-xs text-[#8a5a32]">{syncWarning}</p> : null}
+            <h2 className="text-base font-medium tracking-[-0.02em] text-ink">오늘의 습관 체크리스트</h2>
+            <p className="mt-0.5 text-xs text-muted">목표 횟수를 채우면 스트릭이 올라갑니다</p>
+            {syncWarning ? <p className="mt-1 text-xs text-warn">{syncWarning}</p> : null}
           </div>
         </div>
-        <p className="rounded-full bg-black/[0.04] px-2.5 py-1 font-mono text-xs text-[#1c2430]">
+        <p className="rounded-full bg-wash px-2.5 py-1 font-mono text-xs text-ink">
           {done}/{visible.length}
         </p>
       </div>
 
       {boardFilters ? <BoardFilterTabs value={boardFilter} onChange={setBoardFilter} label="습관 분류" /> : null}
 
-      <div className="mt-4 h-1 overflow-hidden rounded-full bg-black/[0.06]">
+      <div className="mt-4 h-1 overflow-hidden rounded-full bg-wash">
         <div
-          className="h-full rounded-full bg-[#1c2430] transition-[width] duration-300"
+          className="h-full rounded-full bg-ink transition-[width] duration-300"
           style={{ width: `${ratio * 100}%` }}
         />
       </div>
@@ -106,7 +119,7 @@ export function HabitChecklist({
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
-                className="flex items-center gap-3 rounded-xl border border-black/[0.06] bg-[#faf8f5] px-3 py-2.5"
+                className="flex items-center gap-3 rounded-xl border border-line bg-field px-3 py-2.5"
               >
                 <span className="relative">
                   <button
@@ -116,10 +129,10 @@ export function HabitChecklist({
                     aria-label={`${habit.title} ${complete ? "완료 취소" : "한 번 체크"}`}
                     onClick={() => onCheck(habit)}
                     className={cn(
-                      "grid size-8 shrink-0 place-items-center rounded-lg border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/20",
+                      "grid size-8 shrink-0 place-items-center rounded-lg border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20",
                       complete
-                        ? "border-transparent bg-[#1c2430] text-white"
-                        : "border-black/[0.1] bg-[#faf8f5] text-[#3d5f7a] hover:border-[#1c2430]",
+                        ? "border-transparent bg-fill text-on-fill"
+                        : "border-line bg-field text-accent hover:border-ink",
                     )}
                   >
                     {complete ? <Check className="size-3.5" strokeWidth={3} /> : null}
@@ -127,11 +140,16 @@ export function HabitChecklist({
                   <FlameBurst token={bursts[habit.id] ?? 0} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className={cn("truncate text-sm", complete ? "text-[#8a847c] line-through" : "text-[#1c2430]")}>
+                  <p className={cn("truncate text-sm", complete ? "text-muted line-through" : "text-ink")}>
                     {habit.title}
                   </p>
+                  <RepeatMenu
+                    label="반복"
+                    value={repeat.habits[habit.id] ?? defaultSchedule()}
+                    onChange={(next) => setRepeat("habits", habit.id, next)}
+                  />
                 </div>
-                <span className="shrink-0 font-mono text-[11px] text-[#8a847c] tabular-nums">
+                <span className="shrink-0 font-mono text-[11px] text-muted tabular-nums">
                   {habit.completedCount}/{habit.targetCount}
                 </span>
                 <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium", categoryStyles[habit.category])}>
@@ -141,7 +159,7 @@ export function HabitChecklist({
                   <button
                     type="button"
                     onClick={() => removeHabit(habit.id)}
-                    className="grid size-8 shrink-0 place-items-center rounded-lg text-[#8a847c] transition hover:bg-black/[0.04] hover:text-[#9a4d55]"
+                    className="grid size-8 shrink-0 place-items-center rounded-lg text-muted transition hover:bg-wash hover:text-danger"
                     aria-label={`${habit.title} 삭제`}
                   >
                     <Trash2 className="size-4" />
@@ -152,7 +170,7 @@ export function HabitChecklist({
           })}
         </AnimatePresence>
         {visible.length === 0 ? (
-          <li className="flex flex-col items-center rounded-2xl border border-dashed border-black/[0.06] bg-[#faf8f5] px-3 py-10 text-center text-sm text-[#8a847c]">
+          <li className="flex flex-col items-center rounded-2xl border border-dashed border-line bg-field px-3 py-10 text-center text-sm text-muted">
             이 분류에는 아직 습관이 없어요
           </li>
         ) : null}
@@ -161,7 +179,7 @@ export function HabitChecklist({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white text-sm font-medium text-[#1c2430] transition hover:border-[#1c2430]/25 hover:text-[#1c2430] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/20"
+        className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-full border border-line bg-card text-sm font-medium text-ink transition hover:border-ink/25 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20"
       >
         <Plus className="size-4" />
         새 습관 추가

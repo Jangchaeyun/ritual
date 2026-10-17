@@ -31,8 +31,9 @@ export function useHabits() {
   const enabled = Boolean(account.user);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [streak, setStreak] = useState(0);
-  const [loaded, setLoaded] = useState(!enabled);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [day, setDay] = useState("");
   const habitsRef = useRef(habits);
   const tokens = useRef<Record<string, number>>({});
 
@@ -85,6 +86,16 @@ export function useHabits() {
   }, [account.user?.name, enabled]);
 
   useEffect(() => {
+    const tick = () => {
+      const key = seoulDateKey(Date.now());
+      setDay((prev) => (prev === key ? prev : key));
+    };
+    tick();
+    const id = window.setInterval(tick, 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
     if (!enabled) {
       habitsRef.current = [];
       setHabits([]);
@@ -97,7 +108,7 @@ export function useHabits() {
       setError(reason instanceof Error ? reason.message : "습관을 불러오지 못했습니다.");
       setLoaded(true);
     });
-  }, [enabled, reload]);
+  }, [day, enabled, reload]);
 
   const toggle = useCallback((id: string) => {
     const profileId = getOrCreateProfileId();
@@ -141,12 +152,12 @@ export function useHabits() {
     return { streakDelta: applied.streakDelta, done };
   }, []);
 
-  const add = useCallback(async (input: { title: string; category: HabitCategory; targetCount: number }) => {
+  const add = useCallback(async (input: { id?: string; title: string; category: HabitCategory; targetCount: number }) => {
     const supabase = createSupabaseBrowserClient();
     const profileId = getOrCreateProfileId();
     if (!supabase || !profileId) return;
     const habit: Habit = {
-      id: crypto.randomUUID(),
+      id: input.id ?? crypto.randomUUID(),
       title: input.title,
       category: input.category,
       targetCount: input.targetCount,

@@ -37,15 +37,15 @@ export function DailyReflection({
     <Surface delay={delay} className="p-5">
       <div id="daily-reflection" className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-black/[0.04] text-[#1c2430]">
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-wash text-ink">
             <NotebookPen className="size-4" />
           </span>
           <div>
-            <p className="text-[11px] font-medium tracking-[0.22em] text-[#8a847c]">NOTE</p>
-            <h2 className="mt-1 text-base font-medium tracking-[-0.02em] text-[#1c2430]">
+            <p className="text-[11px] font-medium tracking-[0.22em] text-muted">NOTE</p>
+            <h2 className="mt-1 text-base font-medium tracking-[-0.02em] text-ink">
               {isToday ? "오늘의 한 줄 회고" : `${formatReflectionDate(activeDate)} 회고`}
             </h2>
-            <p className="mt-0.5 text-xs text-[#8a847c]">
+            <p className="mt-0.5 text-xs text-muted">
               {isToday
                 ? account.user
                   ? "날짜별로 계정에 저장됩니다."
@@ -58,7 +58,7 @@ export function DailyReflection({
           <button
             type="button"
             onClick={onUseToday}
-            className="shrink-0 rounded-full border border-black/[0.08] px-3 py-1.5 text-xs text-[#1c2430] transition hover:border-[#1c2430]/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/20"
+            className="shrink-0 rounded-full border border-line px-3 py-1.5 text-xs text-ink transition hover:border-ink/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20"
           >
             오늘
           </button>
@@ -74,10 +74,10 @@ export function DailyReflection({
           onChange={(event) => setReflection(activeDate, event.target.value)}
           onBlur={(event) => setReflection(activeDate, event.target.value.trim())}
           placeholder={isToday ? "오늘을 한 줄로 남겨 두세요" : "이 날짜에 남긴 회고가 없습니다"}
-          className="w-full rounded-2xl border border-black/[0.06] bg-[#faf8f5] px-3 py-2.5 text-sm text-[#1c2430] outline-none transition placeholder:text-[#8a847c] focus:border-[#1c2430]/40 focus:ring-2 focus:ring-[#1c2430]/15"
+          className="w-full rounded-2xl border border-line bg-field px-3 py-2.5 text-sm text-ink outline-none transition placeholder:text-muted focus:border-ink/40 focus:ring-2 focus:ring-ink/15"
         />
       </label>
-      <p className="mt-2 text-right font-mono text-[11px] text-[#8a847c] tabular-nums">
+      <p className="mt-2 text-right font-mono text-[11px] text-muted tabular-nums">
         {note.length}/{MAX_REFLECTION_LENGTH}
       </p>
     </Surface>

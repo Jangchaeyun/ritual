@@ -102,12 +102,12 @@ export function DailyReportCard() {
     <Surface className="mb-5 p-5" delay={0.02}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="inline-flex items-center gap-1.5 text-[11px] font-medium tracking-[0.22em] text-[#8a847c]">
+          <p className="inline-flex items-center gap-1.5 text-[11px] font-medium tracking-[0.22em] text-muted">
             <Sparkles className="size-3.5" />
             AI REPORT
           </p>
-          <h2 className="mt-2 text-lg font-medium tracking-[-0.02em] text-[#1c2430]">오늘의 리포트</h2>
-          <p className="mt-1 text-sm text-[#8a847c]">
+          <h2 className="mt-2 text-lg font-medium tracking-[-0.02em] text-ink">오늘의 리포트</h2>
+          <p className="mt-1 text-sm text-muted">
             달성 {input.completedHabits.length}개 · 집중 {formatFocus(input.focusMinutes)} · 세션{" "}
             {input.focusSessions}회
           </p>
@@ -116,7 +116,7 @@ export function DailyReportCard() {
           type="button"
           onClick={createReport}
           disabled={loading}
-          className="inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[#1c2430] px-4 text-sm font-medium text-white transition hover:bg-[#2a3342] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/25 disabled:cursor-wait disabled:opacity-70"
+          className="inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-fill px-4 text-sm font-medium text-on-fill transition hover:bg-fill-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/25 disabled:cursor-wait disabled:opacity-70"
         >
           {loading ? "요약하는 중" : report ? "다시 만들기" : "리포트 만들기"}
         </button>
@@ -127,14 +127,14 @@ export function DailyReportCard() {
           {input.completedHabits.map((habit, index) => (
             <li
               key={`${habit.category}-${habit.title}-${index}`}
-              className="rounded-full border border-black/[0.08] bg-white px-2.5 py-1 text-xs text-[#1c2430]"
+              className="rounded-full border border-line bg-card px-2.5 py-1 text-xs text-ink"
             >
               {habit.title}
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mt-4 text-sm text-[#8a847c]">오늘 목표를 채운 습관은 아직 없어요.</p>
+        <p className="mt-4 text-sm text-muted">오늘 목표를 채운 습관은 아직 없어요.</p>
       )}
 
       <div className="mt-4" aria-live="polite">
@@ -142,21 +142,21 @@ export function DailyReportCard() {
           <ol className="space-y-3">
             {LINES.map((line, index) => (
               <li key={line.key} className="flex gap-3">
-                <span className="mt-0.5 font-mono text-xs text-[#6f8f78]">{index + 1}</span>
-                <p className="min-w-0 text-sm leading-6 text-[#1c2430]">
-                  <span className="mr-2 text-[#8a847c]">{line.label}</span>
+                <span className="mt-0.5 font-mono text-xs text-accent">{index + 1}</span>
+                <p className="min-w-0 text-sm leading-6 text-ink">
+                  <span className="mr-2 text-muted">{line.label}</span>
                   {report[line.key]}
                 </p>
               </li>
             ))}
           </ol>
         ) : (
-          <p className="text-sm leading-6 text-[#8a847c]">
+          <p className="text-sm leading-6 text-muted">
             오늘 달성한 습관과 집중 시간을 바탕으로, 생산성과 잘한 점, 개선점을 세 줄로 정리해 드려요.
           </p>
         )}
-        {stale ? <p className="mt-3 text-xs text-[#3d5f7a]/80">기록이 바뀌었어요. 다시 만들면 최신 하루가 반영됩니다.</p> : null}
-        {error ? <p className="mt-3 text-sm leading-6 text-[#9a4d55]">{error}</p> : null}
+        {stale ? <p className="mt-3 text-xs text-accent/80">기록이 바뀌었어요. 다시 만들면 최신 하루가 반영됩니다.</p> : null}
+        {error ? <p className="mt-3 text-sm leading-6 text-danger">{error}</p> : null}
       </div>
     </Surface>
   );

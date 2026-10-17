@@ -41,14 +41,14 @@ export function StatsView() {
       {ready ? (
         <>
           <div className="mb-5 flex justify-end">
-            <div className="grid grid-cols-2 gap-1 rounded-full bg-black/[0.04] p-1" role="group" aria-label="분석 기간">
+            <div className="grid grid-cols-2 gap-1 rounded-full bg-wash p-1" role="group" aria-label="분석 기간">
               <button
                 type="button"
                 aria-pressed={range === "week"}
                 onClick={() => setRange("week")}
                 className={cn(
-                  "rounded-full px-4 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/25",
-                  range === "week" ? "bg-[#1c2430] text-white" : "text-[#6f6a64] hover:text-[#1c2430]",
+                  "rounded-full px-4 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/25",
+                  range === "week" ? "bg-fill text-on-fill" : "text-soft hover:text-ink",
                 )}
               >
                 주간
@@ -58,8 +58,8 @@ export function StatsView() {
                 aria-pressed={range === "month"}
                 onClick={() => setRange("month")}
                 className={cn(
-                  "rounded-full px-4 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/25",
-                  range === "month" ? "bg-[#1c2430] text-white" : "text-[#6f6a64] hover:text-[#1c2430]",
+                  "rounded-full px-4 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/25",
+                  range === "month" ? "bg-fill text-on-fill" : "text-soft hover:text-ink",
                 )}
               >
                 월간
@@ -96,8 +96,8 @@ export function StatsView() {
 
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-5">
             <Surface className="p-5 xl:col-span-3">
-              <h2 className="text-base font-semibold text-[#1c2430]">{range === "week" ? "주간" : "월간"} 습관 달성률</h2>
-              <p className="mt-1 text-xs text-[#8a847c]">
+              <h2 className="text-base font-semibold text-ink">{range === "week" ? "주간" : "월간"} 습관 달성률</h2>
+              <p className="mt-1 text-xs text-muted">
                 {range === "week" ? "월요일부터 일요일까지" : "이번 달 날짜별"} 달성률 추이
               </p>
               <p className="sr-only">
@@ -113,13 +113,13 @@ export function StatsView() {
                   <AreaChart data={model.points} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#1c2430" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="#1c2430" stopOpacity={0.02} />
+                        <stop offset="0%" stopColor="var(--ink)" stopOpacity={0.35} />
+                        <stop offset="100%" stopColor="var(--ink)" stopOpacity={0.02} />
                       </linearGradient>
                     </defs>
                     <XAxis
                       dataKey="label"
-                      tick={{ fill: "#8a837a", fontSize: 12 }}
+                      tick={{ fill: "var(--muted)", fontSize: 12 }}
                       axisLine={false}
                       tickLine={false}
                       interval={range === "month" ? 2 : 0}
@@ -127,7 +127,7 @@ export function StatsView() {
                     <YAxis
                       domain={[0, 100]}
                       ticks={[0, 50, 100]}
-                      tick={{ fill: "#8a837a", fontSize: 12 }}
+                      tick={{ fill: "var(--muted)", fontSize: 12 }}
                       axisLine={false}
                       tickLine={false}
                       width={36}
@@ -135,21 +135,21 @@ export function StatsView() {
                     />
                     <Tooltip
                       content={ChartTooltip}
-                      cursor={{ stroke: "#c5b8e0", strokeOpacity: 0.8 }}
+                      cursor={{ stroke: "var(--ink)", strokeOpacity: 0.8 }}
                       animationDuration={180}
                     />
                     <Area
                       type="monotone"
                       dataKey="rate"
                       name="달성률"
-                      stroke="#1c2430"
+                      stroke="var(--ink)"
                       strokeWidth={2.5}
                       fill={`url(#${gradientId})`}
                       connectNulls={false}
                       animationDuration={800}
                       animationEasing="ease-out"
-                      dot={{ r: 3, fill: "#1c2430", stroke: "#ffffff", strokeWidth: 1 }}
-                      activeDot={{ r: 5, fill: "#f3eef8", stroke: "#1c2430", strokeWidth: 2 }}
+                      dot={{ r: 3, fill: "var(--ink)", stroke: "var(--card)", strokeWidth: 1 }}
+                      activeDot={{ r: 5, fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: 2 }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -157,10 +157,10 @@ export function StatsView() {
             </Surface>
 
             <Surface delay={0.08} className="p-5 xl:col-span-2">
-              <h2 className="text-base font-semibold text-[#1c2430]">카테고리별 몰입 비율</h2>
-              <p className="mt-1 text-xs text-[#8a847c]">건강, 학습, 업무, 마음에 들어간 집중 시간</p>
+              <h2 className="text-base font-semibold text-ink">카테고리별 몰입 비율</h2>
+              <p className="mt-1 text-xs text-muted">건강, 학습, 업무, 마음에 들어간 집중 시간</p>
               {slices.length === 0 ? (
-                <p className="mt-16 text-center text-sm text-[#8a847c]">이 기간에 기록된 집중 시간이 없습니다.</p>
+                <p className="mt-16 text-center text-sm text-muted">이 기간에 기록된 집중 시간이 없습니다.</p>
               ) : (
                 <motion.div
                   className="relative mt-2 h-64"
@@ -177,7 +177,7 @@ export function StatsView() {
                         innerRadius="62%"
                         outerRadius="82%"
                         paddingAngle={3}
-                        stroke="#ffffff"
+                        stroke="var(--card)"
                         strokeWidth={2}
                         animationDuration={800}
                         animationEasing="ease-out"
@@ -191,8 +191,8 @@ export function StatsView() {
                   </ResponsiveContainer>
                   <div className="pointer-events-none absolute inset-0 grid place-items-center">
                     <div className="text-center">
-                      <p className="font-mono text-xl font-semibold text-[#1c2430]">{formatFocus(model.summary.focusMinutes)}</p>
-                      <p className="text-[11px] text-[#8a847c]">집중 시간</p>
+                      <p className="font-mono text-xl font-semibold text-ink">{formatFocus(model.summary.focusMinutes)}</p>
+                      <p className="text-[11px] text-muted">집중 시간</p>
                     </div>
                   </div>
                 </motion.div>
@@ -202,11 +202,11 @@ export function StatsView() {
                   const share = model.categories.find((item) => item.category === category);
                   return (
                     <li key={category} className="flex items-center justify-between gap-3 text-sm">
-                      <span className="flex items-center gap-2 text-[#1c2430]">
+                      <span className="flex items-center gap-2 text-ink">
                         <span className="size-2.5 rounded-full" style={{ background: categoryColors[category] }} />
                         {category}
                       </span>
-                      <span className="font-mono text-xs text-[#8a847c]">
+                      <span className="font-mono text-xs text-muted">
                         {formatFocus(share?.minutes ?? 0)} · {share?.percent ?? 0}%
                       </span>
                     </li>
@@ -218,8 +218,8 @@ export function StatsView() {
         </>
       ) : (
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-5">
-          <div className="h-96 animate-pulse rounded-2xl border border-black/[0.06] bg-[#f3f0ea] xl:col-span-3" />
-          <div className="h-96 animate-pulse rounded-2xl border border-black/[0.06] bg-[#f3f0ea] xl:col-span-2" />
+          <div className="h-96 animate-pulse rounded-2xl border border-line bg-paper xl:col-span-3" />
+          <div className="h-96 animate-pulse rounded-2xl border border-line bg-paper xl:col-span-2" />
         </div>
       )}
     </div>
@@ -239,12 +239,12 @@ function SummaryCard({
 }) {
   return (
     <Surface className="p-4">
-      <p className="flex items-center gap-2 text-[11px] tracking-wide text-[#8a847c]">
-        <span className="text-[#3d5f7a]">{icon}</span>
+      <p className="flex items-center gap-2 text-[11px] tracking-wide text-muted">
+        <span className="text-accent">{icon}</span>
         {label}
       </p>
-      <p className="mt-2 font-mono text-2xl font-semibold text-[#1c2430] tabular-nums">{value}</p>
-      <p className="mt-1 text-xs text-[#8a847c]">{hint}</p>
+      <p className="mt-2 font-mono text-2xl font-semibold text-ink tabular-nums">{value}</p>
+      <p className="mt-1 text-xs text-muted">{hint}</p>
     </Surface>
   );
 }

@@ -3,19 +3,19 @@
 import { Surface } from "@/components/ui/surface";
 import { useRoutine } from "@/components/routine-provider";
 import { buildHabitHeatmap, type HabitHeatCell } from "@/lib/heatmap";
+import { WEEKDAY_LABELS } from "@/lib/repeat";
 import { useMemo, useState } from "react";
 
 const CELL = 28;
 const GAP = 6;
 const LABEL_W = 28;
 const HEADER_H = 18;
-const WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
 
-const FILLS = ["#e7e2da", "#c9c3ba", "#8f897f", "#5c574f", "#1c2430"] as const;
+const FILLS = ["var(--heat-0)", "var(--heat-1)", "var(--heat-2)", "var(--heat-3)", "var(--heat-4)"] as const;
 
 function fillFor(cell: HabitHeatCell) {
   if (!cell.inRange) return "transparent";
-  if (cell.level == null) return "#f3f0ea";
+  if (cell.level == null) return "var(--heat-empty)";
   return FILLS[cell.level];
 }
 
@@ -65,11 +65,11 @@ export function HabitHeatmap({
     <Surface delay={delay} className="mb-5 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] font-medium tracking-[0.22em] text-[#8a847c]">WEEK</p>
-          <h2 className="mt-1 text-base font-medium tracking-[-0.02em] text-[#1c2430]">주간 학습 현황</h2>
-          <p className="mt-1 text-sm text-[#6f6a64]">최근 30일 달성률입니다. 진할수록 그날 습관을 더 많이 채웠습니다.</p>
+          <p className="text-[11px] font-medium tracking-[0.22em] text-muted">WEEK</p>
+          <h2 className="mt-1 text-base font-medium tracking-[-0.02em] text-ink">주간 학습 현황</h2>
+          <p className="mt-1 text-sm text-soft">최근 30일 달성률입니다. 진할수록 그날 습관을 더 많이 채웠습니다.</p>
         </div>
-        <p className="text-xs text-[#8a847c]">
+        <p className="text-xs text-muted">
           기록 {model.recordedDays}일 · 평균 {model.averageRate}%
         </p>
       </div>
@@ -81,9 +81,9 @@ export function HabitHeatmap({
           viewBox={`0 0 ${width} ${height}`}
           role="grid"
           aria-label="최근 30일 습관 달성 히트맵"
-          className="block text-[#8a847c]"
+          className="block text-muted"
         >
-          {WEEKDAYS.map((label, row) =>
+          {WEEKDAY_LABELS.map((label, row) =>
             row % 2 === 0 ? (
               <text key={label} x={0} y={HEADER_H + row * (CELL + GAP) + 18} fontSize={11} fill="currentColor">
                 {label}
@@ -118,13 +118,13 @@ export function HabitHeatmap({
                       height={CELL}
                       rx={3}
                       fill={fillFor(cell)}
-                      stroke={selected || today ? "#1c2430" : cell.level == null ? "rgba(28,36,48,0.08)" : "transparent"}
+                      stroke={selected || today ? "var(--ink)" : cell.level == null ? "var(--line)" : "transparent"}
                       strokeWidth={selected ? 2.5 : today ? 1.5 : 1}
                       tabIndex={0}
                       role="gridcell"
                       aria-selected={selected}
                       aria-label={labelText}
-                      className="cursor-pointer outline-none focus-visible:stroke-[#1c2430]"
+                      className="cursor-pointer outline-none focus-visible:stroke-ink"
                       onMouseEnter={() => setActive(cell)}
                       onFocus={() => setActive(cell)}
                       onClick={() => onSelectDate?.(cell.date)}
@@ -143,12 +143,12 @@ export function HabitHeatmap({
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="min-h-5 text-sm text-[#6f6a64]" aria-live="polite">
+        <p className="min-h-5 text-sm text-soft" aria-live="polite">
           {active?.date
             ? `${cellLabel(active)}${reflections[active.date] ? ` · ${reflections[active.date]}` : ""}. 칸을 누르면 회고를 엽니다.`
             : "칸을 누르면 그날의 회고를 엽니다."}
         </p>
-        <div className="flex items-center gap-1.5 text-[11px] text-[#8a847c]" aria-hidden>
+        <div className="flex items-center gap-1.5 text-[11px] text-muted" aria-hidden>
           <span>낮음</span>
           {FILLS.map((fill) => (
             <svg key={fill} width={CELL} height={CELL} viewBox={`0 0 ${CELL} ${CELL}`}>

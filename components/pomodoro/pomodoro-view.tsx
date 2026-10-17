@@ -20,8 +20,8 @@ export function PomodoroView() {
       {ready ? (
         <>
           <StudyTimer variant="hero" />
-          <details className="mx-auto mt-5 w-full max-w-xl rounded-2xl border border-black/[0.06] bg-white shadow-[0_1px_1px_rgba(28,36,48,0.04),0_16px_40px_-28px_rgba(28,36,48,0.28)]">
-            <summary className="cursor-pointer list-none px-4 py-3.5 text-sm font-medium text-[#1c2430] [&::-webkit-details-marker]:hidden">
+          <details className="mx-auto mt-5 w-full max-w-xl rounded-2xl border border-line bg-card shadow-panel">
+            <summary className="cursor-pointer list-none px-4 py-3.5 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden">
               포모도로 · 작업과 휴식 길이를 직접 정할 수 있습니다
             </summary>
             <div className="px-2 pb-2">
@@ -32,7 +32,7 @@ export function PomodoroView() {
           <AmbientPlayer />
         </>
       ) : (
-        <div className="mx-auto h-[520px] max-w-xl animate-pulse rounded-2xl border border-black/[0.06] bg-[#f3f0ea]" />
+        <div className="mx-auto h-[520px] max-w-xl animate-pulse rounded-2xl border border-line bg-paper" />
       )}
     </div>
   );

@@ -46,45 +46,45 @@ function toAccountUser(user: { id: string; email?: string; user_metadata?: Recor
 
 export function AccountProvider({ children }: { children: ReactNode }) {
   const configured = supabaseConfigured();
-  const [ready, setReady] = useState(!configured);
+  const [ready, setReady] = useState(true);
   const [user, setUser] = useState<AccountUser | null>(null);
   setSignedInProfileId(user?.id ?? null);
 
   useEffect(() => {
     if (!configured) return;
-    const supabase = createSupabaseBrowserClient();
-    if (!supabase) {
-      setReady(true);
-      return;
-    }
-
-    let settled = false;
-    const finish = (next: AccountUser | null) => {
-      if (next && pauseSignedIn) return;
-      settled = true;
-      setUser(next);
-      setReady(true);
-    };
+    let alive = true;
     const timeout = window.setTimeout(() => {
-      if (!settled) setReady(true);
-    }, 2500);
+      if (alive) setReady(true);
+    }, 1500);
 
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      finish(session?.user ? toAccountUser(session.user) : null);
-    });
-    void supabase.auth
-      .getSession()
-      .then(({ data: sessionData }) => {
-        finish(sessionData.session?.user ? toAccountUser(sessionData.session.user) : null);
-      })
-      .catch(() => {
-        if (!settled) setReady(true);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      if (!supabase) {
+        setReady(true);
+        return () => {
+          alive = false;
+          window.clearTimeout(timeout);
+        };
+      }
+
+      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (!alive || (session?.user && pauseSignedIn)) return;
+        setUser(session?.user ? toAccountUser(session.user) : null);
+        setReady(true);
       });
 
-    return () => {
-      window.clearTimeout(timeout);
-      data.subscription.unsubscribe();
-    };
+      return () => {
+        alive = false;
+        window.clearTimeout(timeout);
+        data.subscription.unsubscribe();
+      };
+    } catch {
+      setReady(true);
+      return () => {
+        alive = false;
+        window.clearTimeout(timeout);
+      };
+    }
   }, [configured]);
 
   const value = useMemo(() => ({ configured, ready, user }), [configured, ready, user]);
@@ -93,7 +93,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     return (
       <div
         suppressHydrationWarning
-        className="grid min-h-screen place-items-center bg-[#faf8f5] text-sm text-[#8a847c]"
+        className="grid min-h-screen place-items-center bg-field text-sm text-muted"
       >
         로그인 상태 확인 중
       </div>

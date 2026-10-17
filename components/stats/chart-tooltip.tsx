@@ -23,7 +23,7 @@ export function ChartTooltip({ active, payload, label }: TooltipContentProps) {
   if (isTrend(row)) {
     body = {
       heading: row.label || title,
-      color: "#1c2430",
+      color: "var(--ink)",
       lines: [
         row.rate == null ? "기록 없음" : `달성률 ${row.rate}%`,
         `집중 ${formatFocus(row.focusMinutes)}`,
@@ -45,14 +45,14 @@ export function ChartTooltip({ active, payload, label }: TooltipContentProps) {
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, ease: "easeOut" }}
-      className="rounded-xl border border-black/[0.06] bg-white px-3 py-2 shadow-lg"
+      className="rounded-xl border border-line bg-card px-3 py-2 shadow-lg"
     >
-      <p className="flex items-center gap-2 text-xs font-semibold text-[#1c2430]">
+      <p className="flex items-center gap-2 text-xs font-semibold text-ink">
         <span className="size-2 rounded-full" style={{ background: body.color }} />
         {body.heading}
       </p>
       {body.lines.map((line) => (
-        <p key={line} className="mt-1 text-xs text-[#6f6a64]">
+        <p key={line} className="mt-1 text-xs text-soft">
           {line}
         </p>
       ))}

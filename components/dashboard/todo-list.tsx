@@ -4,7 +4,18 @@ import { BoardFilterTabs } from "@/components/dashboard/board-filter-tabs";
 import { GoogleCalendarPanel, type CalendarView } from "@/components/dashboard/google-calendar-panel";
 import { useRoutine } from "@/components/routine-provider";
 import { matchesBoardFilter, type BoardFilter } from "@/lib/board-filter";
-import { HABIT_CATEGORIES, type HabitCategory } from "@/lib/types";
+import { RepeatFields, RepeatMenu } from "@/components/ui/repeat-fields";
+import { seoulDateKey } from "@/lib/analytics";
+import {
+  defaultSchedule,
+  getRepeatBook,
+  getRepeatServerBook,
+  occursOn,
+  setRepeat,
+  subscribeRepeat,
+  type RepeatSchedule,
+} from "@/lib/repeat";
+import { HABIT_CATEGORIES, type HabitCategory, type Todo } from "@/lib/types";
 import { Surface } from "@/components/ui/surface";
 import { priorityMeta, statusMeta } from "@/lib/labels";
 import { cn } from "@/lib/cn";
@@ -13,13 +24,15 @@ import {
   getStudyServerSnapshot,
   getStudySnapshot,
   hydrateStudyClock,
+  sessionPurpose,
+  studyTargetId,
   subscribeStudyClock,
 } from "@/lib/study-timer";
 import type { GoogleCalendarEvent } from "@/lib/google-calendar";
 import { DragDropContext, Draggable, Droppable, type DropResult } from "@hello-pangea/dnd";
-import { BookOpen, Check, GripVertical, ListTodo, Timer, Trash2 } from "lucide-react";
+import { BookOpen, Check, GripVertical, ListTodo, Pencil, Timer, Trash2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 
 function isCalendarEvent(value: unknown): value is GoogleCalendarEvent {
   if (!value || typeof value !== "object") return false;
@@ -34,14 +47,103 @@ function isCalendarEvent(value: unknown): value is GoogleCalendarEvent {
   );
 }
 
+type TodoDraft = { title: string; category: HabitCategory };
+
+function TodoEditor({
+  draft,
+  error,
+  onChange,
+  onCancel,
+  onSave,
+}: {
+  draft: TodoDraft;
+  error: string | null;
+  onChange: (next: TodoDraft) => void;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <form
+      className="mt-2 grid gap-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSave();
+      }}
+    >
+      <input
+        value={draft.title}
+        onChange={(event) => onChange({ ...draft, title: event.target.value })}
+        onCompositionEnd={(event) => onChange({ ...draft, title: event.currentTarget.value })}
+        aria-label="할 일 이름"
+        autoComplete="off"
+        className="min-w-0 rounded-xl border border-line bg-card px-3 py-2 text-sm text-ink outline-none ring-ink/15 focus:ring-2"
+      />
+      <select
+        value={draft.category}
+        onChange={(event) => onChange({ ...draft, category: event.target.value as HabitCategory })}
+        aria-label="할 일 카테고리"
+        className="rounded-xl border border-line bg-card px-2 py-2 text-xs text-ink outline-none ring-ink/15 focus:ring-2"
+      >
+        {HABIT_CATEGORIES.map((category) => (
+          <option key={category} value={category}>
+            {category}
+          </option>
+        ))}
+      </select>
+      {error ? <p className="text-xs text-danger">{error}</p> : null}
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={onCancel} className="rounded-full px-3 py-1.5 text-xs text-soft">
+          취소
+        </button>
+        <button type="submit" className="rounded-full bg-fill px-3 py-1.5 text-xs font-medium text-on-fill">
+          저장
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export function TodoList({ delay = 0 }: { delay?: number }) {
-  const { todos, pomodoro, syncWarning, cycleTodoStatus, toggleTodoDone, addTodo, removeTodo, reorderTodos, startFocusForTodo } = useRoutine();
+  const { todos, pomodoro, loggedSessions, syncWarning, cycleTodoStatus, toggleTodoDone, addTodo, updateTodo, removeTodo, reorderTodos, startFocusForTodo } = useRoutine();
   const study = useSyncExternalStore(subscribeStudyClock, getStudySnapshot, getStudyServerSnapshot);
+  const repeat = useSyncExternalStore(subscribeRepeat, getRepeatBook, getRepeatServerBook);
+  const [today, setToday] = useState("");
   const [draft, setDraft] = useState("");
   const [draftCategory, setDraftCategory] = useState<HabitCategory>("업무");
+  const [schedule, setSchedule] = useState<RepeatSchedule>(defaultSchedule);
   const [boardFilter, setBoardFilter] = useState<BoardFilter>("all");
-  const visible = todos.filter((todo) => matchesBoardFilter(todo.category, boardFilter));
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<TodoDraft | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  useEffect(() => {
+    const tick = () => setToday(seoulDateKey(Date.now()));
+    tick();
+    const id = window.setInterval(tick, 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const visible = todos.filter((todo) => {
+    if (!matchesBoardFilter(todo.category, boardFilter)) return false;
+    if (today && !occursOn(repeat.todos[todo.id], today)) return false;
+    return true;
+  });
+  const resting = todos.filter((todo) => {
+    if (!today || !matchesBoardFilter(todo.category, boardFilter)) return false;
+    return !occursOn(repeat.todos[todo.id], today);
+  });
   const openCount = visible.filter((todo) => todo.status !== "done").length;
+  const todayMinutes = useMemo(() => {
+    const totals = new Map<string, number>();
+    if (!today) return totals;
+    for (const session of loggedSessions) {
+      if (session.phase !== "focus" || session.minutes <= 0) continue;
+      if (seoulDateKey(session.completedAt) !== today) continue;
+      const purpose = sessionPurpose(session.todoId);
+      const target = purpose ? studyTargetId(session.todoId) : session.todoId;
+      if (!target) continue;
+      totals.set(target, (totals.get(target) ?? 0) + session.minutes);
+    }
+    return totals;
+  }, [loggedSessions, today]);
   const searchParams = useSearchParams();
   const authError = searchParams.get("error");
   const [tab, setTab] = useState<"todo" | "calendar">(searchParams.get("calendar") === "1" || authError ? "calendar" : "todo");
@@ -104,13 +206,40 @@ export function TodoList({ delay = 0 }: { delay?: number }) {
     }
   }
 
+  function beginEdit(todo: Todo) {
+    setEditingId(todo.id);
+    setEditDraft({ title: todo.title, category: todo.category });
+    setEditError(null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditDraft(null);
+    setEditError(null);
+  }
+
+  async function saveEdit() {
+    if (!editingId || !editDraft) return;
+    if (!editDraft.title.trim()) {
+      setEditError("이름을 입력해 주세요.");
+      return;
+    }
+    const saved = await updateTodo(editingId, editDraft);
+    if (!saved) {
+      setEditError("저장하지 못했습니다.");
+      return;
+    }
+    cancelEdit();
+  }
+
   function submitTodo(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const field = event.currentTarget.elements.namedItem("title");
     const title = (field instanceof HTMLInputElement ? field.value : draft).trim();
     if (!title) return;
-    addTodo({ title, category: draftCategory });
+    addTodo({ title, category: draftCategory, schedule });
     setDraft("");
+    setSchedule(defaultSchedule());
   }
 
   const calendarBoot = useRef(false);
@@ -131,24 +260,24 @@ export function TodoList({ delay = 0 }: { delay?: number }) {
     <Surface delay={delay} className="flex h-full flex-col p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-black/[0.04] text-[#1c2430]">
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-wash text-ink">
             <ListTodo className="size-4" />
           </span>
           <div>
-            <h2 className="text-base font-medium tracking-[-0.02em] text-[#1c2430]">우선순위 Todo 목록</h2>
-            <p className="mt-0.5 text-xs text-[#8a847c]">
+            <h2 className="text-base font-medium tracking-[-0.02em] text-ink">우선순위 Todo 목록</h2>
+            <p className="mt-0.5 text-xs text-muted">
               {tab === "todo"
                 ? "순서를 바꾸고, 타이머로 이 작업의 몰입 시간을 쌓습니다"
                 : "Google Calendar에서 가져온 오늘 일정입니다"}
             </p>
           </div>
         </div>
-        <p className="rounded-full bg-black/[0.04] px-2.5 py-1 text-xs text-[#1c2430]">
+        <p className="rounded-full bg-wash px-2.5 py-1 text-xs text-ink">
           {tab === "todo" ? `남음 ${openCount}` : "오늘"}
         </p>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-1 rounded-full bg-black/[0.04] p-1" role="tablist" aria-label="할 일 패널">
+      <div className="mt-4 grid grid-cols-2 gap-1 rounded-full bg-wash p-1" role="tablist" aria-label="할 일 패널">
         <button
           type="button"
           role="tab"
@@ -157,8 +286,8 @@ export function TodoList({ delay = 0 }: { delay?: number }) {
           aria-controls="todo-panel"
           onClick={() => setTab("todo")}
           className={cn(
-            "rounded-full px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/25",
-            tab === "todo" ? "bg-[#1c2430] text-white" : "text-[#6f6a64] hover:text-[#1c2430]",
+            "rounded-full px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/25",
+            tab === "todo" ? "bg-fill text-on-fill" : "text-soft hover:text-ink",
           )}
         >
           할 일
@@ -171,10 +300,10 @@ export function TodoList({ delay = 0 }: { delay?: number }) {
           aria-controls="calendar-panel"
           onClick={openCalendar}
           className={cn(
-            "rounded-full px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/25",
+            "rounded-full px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/25",
             tab === "calendar"
-              ? "bg-[#1c2430] text-white"
-              : "text-[#6f6a64] hover:text-[#1c2430]",
+              ? "bg-fill text-on-fill"
+              : "text-soft hover:text-ink",
           )}
         >
           구글 일정
@@ -195,20 +324,21 @@ export function TodoList({ delay = 0 }: { delay?: number }) {
                 event.preventDefault();
                 const title = event.currentTarget.value.trim();
                 if (!title) return;
-                addTodo({ title, category: draftCategory });
+                addTodo({ title, category: draftCategory, schedule });
                 setDraft("");
+                setSchedule(defaultSchedule());
               }}
               aria-label="할 일"
               placeholder="할 일을 입력하세요"
               autoComplete="off"
               enterKeyHint="done"
-              className="min-w-0 flex-1 rounded-xl border border-black/[0.06] bg-[#faf8f5] px-3 py-2 text-sm text-[#1c2430] outline-none ring-[#1c2430]/15 placeholder:text-[#b7b1a8] focus:ring-2"
+              className="min-w-0 flex-1 rounded-xl border border-line bg-field px-3 py-2 text-sm text-ink outline-none ring-ink/15 placeholder:text-faint focus:ring-2"
             />
             <select
               value={draftCategory}
               onChange={(event) => setDraftCategory(event.target.value as HabitCategory)}
               aria-label="할 일 카테고리"
-              className="rounded-xl border border-black/[0.06] bg-[#faf8f5] px-2 text-xs text-[#1c2430] outline-none ring-[#1c2430]/15 focus:ring-2"
+              className="rounded-xl border border-line bg-field px-2 text-xs text-ink outline-none ring-ink/15 focus:ring-2"
             >
               {HABIT_CATEGORIES.map((category) => (
                 <option key={category} value={category}>
@@ -218,13 +348,16 @@ export function TodoList({ delay = 0 }: { delay?: number }) {
             </select>
             <button
               type="submit"
-              className="shrink-0 rounded-full bg-[#1c2430] px-3.5 py-2 text-sm font-medium text-white"
+              className="shrink-0 rounded-full bg-fill px-3.5 py-2 text-sm font-medium text-on-fill"
             >
               추가
             </button>
           </form>
+          <div className="mt-3">
+            <RepeatFields value={schedule} onChange={setSchedule} />
+          </div>
           {syncWarning?.includes("할 일") ? (
-            <p className="mt-2 text-xs text-[#8a5a32]">{syncWarning}</p>
+            <p className="mt-2 text-xs text-warn">{syncWarning}</p>
           ) : null}
         </>
       ) : null}
@@ -256,16 +389,17 @@ export function TodoList({ delay = 0 }: { delay?: number }) {
                         ref={item.innerRef}
                         {...item.draggableProps}
                         className={cn(
-                          "flex items-center gap-2 rounded-xl border border-black/[0.06] border-l-2 bg-[#faf8f5] px-2 py-2",
+                          "rounded-xl border border-line border-l-2 bg-field px-2 py-2",
                           priority.accent,
                           done && "opacity-60",
                           snapshot.isDragging && "shadow-[0_16px_32px_-18px_rgba(28,36,48,0.28)] ring-1 ring-black/10",
-                          tracking && "ring-1 ring-[#1c2430]/20",
+                          tracking && "ring-1 ring-ink/20",
                         )}
                       >
+                        <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          className="grid size-8 shrink-0 cursor-grab place-items-center rounded-lg text-[#8a847c] active:cursor-grabbing"
+                          className="grid size-8 shrink-0 cursor-grab place-items-center rounded-lg text-muted active:cursor-grabbing"
                           aria-label={`${todo.title} 순서 변경`}
                           {...item.dragHandleProps}
                         >
@@ -278,28 +412,32 @@ export function TodoList({ delay = 0 }: { delay?: number }) {
                           aria-label={`${todo.title} ${done ? "미완료로 변경" : "완료"}`}
                           onClick={() => toggleTodoDone(todo.id)}
                           className={cn(
-                            "grid size-8 shrink-0 place-items-center rounded-lg border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/20",
+                            "grid size-8 shrink-0 place-items-center rounded-lg border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20",
                             done
-                              ? "border-transparent bg-[#1c2430] text-white"
-                              : "border-black/[0.1] bg-[#faf8f5] text-transparent hover:border-[#1c2430]",
+                              ? "border-transparent bg-fill text-on-fill"
+                              : "border-line bg-field text-transparent hover:border-ink",
                           )}
                         >
                           <Check className="size-3.5" strokeWidth={3} />
                         </button>
-                        <span className={cn("shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold", priority.chip)}>
-                          {priority.label}
-                        </span>
-                        <p className={cn("min-w-0 flex-1 truncate text-sm", done ? "text-[#8a847c] line-through" : "text-[#1c2430]")}>
-                          {todo.title}
-                          {todo.focusMinutes > 0 ? (
-                            <span className="ml-2 font-mono text-[11px] text-[#3d5f7a]/90">{todo.focusMinutes}분</span>
-                          ) : null}
-                        </p>
+                        <div className="min-w-0 flex-1">
+                          <p className={cn("truncate text-sm", done ? "text-muted line-through" : "text-ink")}>
+                            {todo.title}
+                            {(todayMinutes.get(todo.id) ?? 0) > 0 ? (
+                              <span className="ml-2 font-mono text-[11px] text-accent/90">{todayMinutes.get(todo.id)}분</span>
+                            ) : null}
+                          </p>
+                          <RepeatMenu
+                            label="반복"
+                            value={repeat.todos[todo.id] ?? defaultSchedule()}
+                            onChange={(next) => setRepeat("todos", todo.id, next)}
+                          />
+                        </div>
                         <button
                           type="button"
                           onClick={() => cycleTodoStatus(todo.id)}
                           className={cn(
-                            "shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/20",
+                            "shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20",
                             status.chip,
                           )}
                           aria-label={`${todo.title} 상태 변경, 현재 ${status.label}`}
@@ -314,10 +452,10 @@ export function TodoList({ delay = 0 }: { delay?: number }) {
                           }}
                           aria-pressed={studying}
                           className={cn(
-                            "inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/20",
+                            "inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20",
                             studying
-                              ? "border-[#1c2430] bg-[#1c2430] text-white"
-                              : "border-black/[0.08] text-[#6f6a64] hover:border-[#1c2430] hover:text-[#1c2430]",
+                              ? "border-fill bg-fill text-on-fill"
+                              : "border-line text-soft hover:border-ink hover:text-ink",
                           )}
                           aria-label={`${todo.title} ${todo.category === "업무" ? "근무" : "공부"} 타이머`}
                         >
@@ -329,10 +467,10 @@ export function TodoList({ delay = 0 }: { delay?: number }) {
                           onClick={() => startFocusForTodo(todo.id)}
                           aria-pressed={tracking}
                           className={cn(
-                            "inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/20",
+                            "inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20",
                             tracking
-                              ? "border-[#1c2430] bg-[#1c2430] text-white"
-                              : "border-black/[0.08] text-[#6f6a64] hover:border-[#1c2430]/25 hover:text-[#1c2430]",
+                              ? "border-fill bg-fill text-on-fill"
+                              : "border-line text-soft hover:border-ink/25 hover:text-ink",
                           )}
                           aria-label={`${todo.title} 이 작업으로 타이머 시작`}
                         >
@@ -341,12 +479,33 @@ export function TodoList({ delay = 0 }: { delay?: number }) {
                         </button>
                         <button
                           type="button"
+                          onClick={() => (editingId === todo.id ? cancelEdit() : beginEdit(todo))}
+                          className="grid size-8 shrink-0 place-items-center rounded-lg text-muted transition hover:bg-wash hover:text-ink"
+                          aria-label={`${todo.title} 수정`}
+                        >
+                          <Pencil className="size-4" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => removeTodo(todo.id)}
-                          className="grid size-8 shrink-0 place-items-center rounded-lg text-[#8a847c] transition hover:bg-black/[0.04] hover:text-[#9a4d55]"
+                          className="grid size-8 shrink-0 place-items-center rounded-lg text-muted transition hover:bg-wash hover:text-danger"
                           aria-label={`${todo.title} 삭제`}
                         >
                           <Trash2 className="size-4" />
                         </button>
+                        </div>
+                        {editingId === todo.id && editDraft ? (
+                          <TodoEditor
+                            draft={editDraft}
+                            error={editError}
+                            onChange={(next) => {
+                              setEditDraft(next);
+                              setEditError(null);
+                            }}
+                            onCancel={cancelEdit}
+                            onSave={() => void saveEdit()}
+                          />
+                        ) : null}
                       </li>
                     )}
                   </Draggable>
@@ -354,14 +513,61 @@ export function TodoList({ delay = 0 }: { delay?: number }) {
               })}
               {provided.placeholder}
               {visible.length === 0 ? (
-                <li className="rounded-2xl border border-dashed border-black/[0.06] bg-[#faf8f5] px-3 py-10 text-center text-sm text-[#8a847c]">
-                  이 분류에는 아직 할 일이 없어요
+                <li className="rounded-2xl border border-dashed border-line bg-field px-3 py-10 text-center text-sm text-muted">
+                  오늘은 이 분류의 할 일이 없어요
                 </li>
               ) : null}
             </ul>
           )}
         </Droppable>
       </DragDropContext>
+      {resting.length > 0 ? (
+        <div className="mt-4">
+          <p className="text-xs text-muted">오늘은 아닌 반복</p>
+          <ul className="mt-2 flex flex-col gap-2">
+            {resting.map((todo) => (
+              <li key={todo.id} className="rounded-xl border border-line bg-field px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <p className="min-w-0 flex-1 truncate text-sm text-soft">{todo.title}</p>
+                  <button
+                    type="button"
+                    onClick={() => (editingId === todo.id ? cancelEdit() : beginEdit(todo))}
+                    className="grid size-8 shrink-0 place-items-center rounded-lg text-muted transition hover:bg-wash hover:text-ink"
+                    aria-label={`${todo.title} 수정`}
+                  >
+                    <Pencil className="size-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeTodo(todo.id)}
+                    className="grid size-8 shrink-0 place-items-center rounded-lg text-muted transition hover:bg-wash hover:text-danger"
+                    aria-label={`${todo.title} 삭제`}
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+                {editingId === todo.id && editDraft ? (
+                  <TodoEditor
+                    draft={editDraft}
+                    error={editError}
+                    onChange={(next) => {
+                      setEditDraft(next);
+                      setEditError(null);
+                    }}
+                    onCancel={cancelEdit}
+                    onSave={() => void saveEdit()}
+                  />
+                ) : null}
+                <RepeatMenu
+                  label="반복"
+                  value={repeat.todos[todo.id] ?? defaultSchedule()}
+                  onChange={(next) => setRepeat("todos", todo.id, next)}
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       </div>
       )}
     </Surface>

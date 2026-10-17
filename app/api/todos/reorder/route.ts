@@ -1,10 +1,10 @@
 import { isProfileId } from "@/lib/supabase-profile";
-import { requireSupabaseUser } from "@/lib/supabase/session";
+import { requireSupabaseUser, supabaseUserError } from "@/lib/supabase/session";
 
 export async function PATCH(request: Request) {
   const { supabase, userId, status } = await requireSupabaseUser();
   if (!supabase || !userId) {
-    return Response.json({ error: status === 503 ? "supabase_unconfigured" : "unauthorized" }, { status });
+    return supabaseUserError(status === 503 ? 503 : 401);
   }
 
   const body: unknown = await request.json().catch(() => null);

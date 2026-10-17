@@ -21,18 +21,18 @@ import { useState, type ReactNode } from "react";
 function Metric({ icon, label, value, hint }: { icon: ReactNode; label: string; value: string; hint: string }) {
   return (
     <div className={cn(panelClass, "px-4 py-4")}>
-      <p className="flex items-center gap-2 text-[11px] tracking-[0.12em] text-[#8a847c]">
-        <span className="text-[#1c2430]">{icon}</span>
+      <p className="flex items-center gap-2 text-[11px] tracking-[0.12em] text-muted">
+        <span className="text-ink">{icon}</span>
         {label}
       </p>
-      <p className="mt-3 font-mono text-[1.65rem] font-medium tracking-[-0.03em] text-[#1c2430] tabular-nums">{value}</p>
-      <p className="mt-1 text-xs text-[#8a847c]">{hint}</p>
+      <p className="mt-3 font-mono text-[1.65rem] font-medium tracking-[-0.03em] text-ink tabular-nums">{value}</p>
+      <p className="mt-1 text-xs text-muted">{hint}</p>
     </div>
   );
 }
 
 function CardSkeleton() {
-  return <div className="h-[440px] animate-pulse rounded-2xl border border-black/[0.06] bg-[#f3f0ea]" />;
+  return <div className="h-[440px] animate-pulse rounded-2xl border border-line bg-paper" />;
 }
 
 export function DashboardView() {
@@ -55,9 +55,9 @@ export function DashboardView() {
           <section className="mb-8">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
               <div className="max-w-xl">
-                <p className="text-[11px] font-medium tracking-[0.22em] text-[#8a847c]">TODAY</p>
-                <h1 className="mt-2 text-[2rem] font-medium tracking-[-0.03em] text-[#1c2430]">오늘의 플래너</h1>
-                <p className="mt-2 text-sm leading-6 break-keep text-[#6f6a64]">
+                <p className="text-[11px] font-medium tracking-[0.22em] text-muted">TODAY</p>
+                <h1 className="mt-2 text-[2rem] font-medium tracking-[-0.03em] text-ink">오늘의 플래너</h1>
+                <p className="mt-2 text-sm leading-6 break-keep text-soft">
                   {account.user
                     ? "할 일과 습관을 날짜처럼 펼쳐 두고, 공부한 시간은 기록으로 남겨 두세요."
                     : "할 일과 습관을 이 브라우저에 바로 남겨 두세요. 로그인하면 계정에도 저장됩니다."}
@@ -65,20 +65,20 @@ export function DashboardView() {
               </div>
               <div className="w-full lg:max-w-xs">
                 <div className="mb-2 flex items-center justify-between text-xs">
-                  <span className="tracking-wide text-[#8a847c]">오늘의 목표</span>
-                  <span className="font-medium text-[#1c2430] tabular-nums">{goalRate}%</span>
+                  <span className="tracking-wide text-muted">오늘의 목표</span>
+                  <span className="font-medium text-ink tabular-nums">{goalRate}%</span>
                 </div>
                 <div
-                  className="h-1 overflow-hidden rounded-full bg-black/[0.06]"
+                  className="h-1 overflow-hidden rounded-full bg-wash"
                   role="progressbar"
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={goalRate}
                   aria-label="오늘의 습관 달성률"
                 >
-                  <div className="h-full rounded-full bg-[#1c2430] transition-[width] duration-300" style={{ width: `${goalRate}%` }} />
+                  <div className="h-full rounded-full bg-ink transition-[width] duration-300" style={{ width: `${goalRate}%` }} />
                 </div>
-                <p className="mt-2 text-xs text-[#8a847c]">
+                <p className="mt-2 text-xs text-muted">
                   습관 {habitDone}/{habits.length} · 완료한 할 일 {doneTodos}
                 </p>
               </div>
@@ -101,7 +101,7 @@ export function DashboardView() {
             </div>
             <div className="xl:col-span-2">
               <details className={cn(panelClass, "px-1")}>
-                <summary className="cursor-pointer px-4 py-3.5 text-sm font-medium text-[#1c2430]">포모도로</summary>
+                <summary className="cursor-pointer px-4 py-3.5 text-sm font-medium text-ink">포모도로</summary>
                 <div className="px-2 pb-3">
                   <PomodoroTimer delay={0} />
                 </div>

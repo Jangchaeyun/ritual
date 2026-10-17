@@ -23,10 +23,10 @@ export function BoardFilterTabs({
             aria-pressed={selected}
             onClick={() => onChange(item.id)}
             className={cn(
-              "rounded-full px-3 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/20",
+              "rounded-full px-3 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20",
               selected
-                ? "bg-[#1c2430] text-white"
-                : "bg-white text-[#6f6a64] ring-1 ring-black/[0.06] hover:text-[#1c2430]",
+                ? "bg-fill text-on-fill"
+                : "bg-card text-soft ring-1 ring-line hover:text-ink",
             )}
           >
             {item.label}

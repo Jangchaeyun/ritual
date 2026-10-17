@@ -4,6 +4,17 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const PROTECTED_PREFIXES = ["/dashboard", "/habits", "/stats", "/settings", "/pomodoro"];
 
+function safeNextPath(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return null;
+  try {
+    const url = new URL(value, "http://ritual.local");
+    if (url.origin !== "http://ritual.local") return null;
+    return { pathname: url.pathname, search: url.search };
+  } catch {
+    return null;
+  }
+}
+
 function isProtectedPath(pathname: string) {
   if (pathname === "/" || pathname === "/dashboard") return true;
   return PROTECTED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
@@ -45,18 +56,24 @@ export async function proxy(request: NextRequest) {
 
   if (!user && isProtectedPath(pathname)) {
     const url = request.nextUrl.clone();
+    const next = `${pathname}${request.nextUrl.search}`;
     url.pathname = "/login";
-    url.search = "";
+    url.search = next === "/" ? "" : `?next=${encodeURIComponent(next)}`;
     const redirect = NextResponse.redirect(url);
     copyCookies(response, redirect);
     return redirect;
   }
 
   if (user && (pathname === "/login" || pathname === "/dashboard")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    url.search = "";
-    const redirect = NextResponse.redirect(url);
+    const destination = request.nextUrl.clone();
+    if (pathname === "/login") {
+      const next = safeNextPath(request.nextUrl.searchParams.get("next"));
+      destination.pathname = next?.pathname ?? "/";
+      destination.search = next?.search ?? "";
+    } else {
+      destination.pathname = "/";
+    }
+    const redirect = NextResponse.redirect(destination);
     copyCookies(response, redirect);
     return redirect;
   }

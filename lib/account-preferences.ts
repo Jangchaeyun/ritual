@@ -1,8 +1,11 @@
 import { AMBIENT_TRACKS, applyAmbientSettings, exportAmbientSettings, type AmbientTrackId } from "@/lib/ambient-audio";
 import { applyFocusAlertEnabled, exportFocusAlertEnabled } from "@/lib/focus-alert";
 import { clampBreakMinutes, clampFocusMinutes, rememberedTimerLengths } from "@/lib/pomodoro";
+import { exportRepeatBook, parseRepeatBook, replaceRepeatBook, type RepeatBook } from "@/lib/repeat";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { isMissingColumn } from "@/lib/supabase-error";
 import { exportTimerColors, replaceTimerColors } from "@/lib/timer-colors";
+import { applyTheme, exportTheme, isThemeId, type ThemeId } from "@/lib/theme";
 
 export type AccountPreferences = {
   sidebarCollapsed: boolean;
@@ -11,6 +14,8 @@ export type AccountPreferences = {
   focusMinutes: number;
   breakMinutes: number;
   timerColors: Record<string, string>;
+  repeat: RepeatBook;
+  theme: ThemeId;
 };
 
 function isTrack(value: unknown): value is AmbientTrackId {
@@ -18,11 +23,6 @@ function isTrack(value: unknown): value is AmbientTrackId {
 }
 
 export const PREFERENCE_JOURNAL_DATE = "1900-01-01";
-
-function missingPreferencesColumn(error: { code?: string; message?: string } | null) {
-  if (!error) return false;
-  return error.code === "42703" || error.code === "PGRST204" || /preferences/i.test(error.message ?? "");
-}
 
 export function readAccountPreferences(value: unknown): Partial<AccountPreferences> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -45,6 +45,8 @@ export function readAccountPreferences(value: unknown): Partial<AccountPreferenc
     }
     next.timerColors = colors;
   }
+  if (record.repeat && typeof record.repeat === "object") next.repeat = parseRepeatBook(record.repeat);
+  if (isThemeId(record.theme)) next.theme = record.theme;
   return next;
 }
 
@@ -57,6 +59,8 @@ export function currentAccountPreferences(sidebarCollapsed: boolean): AccountPre
     focusMinutes: lengths.focusMinutes,
     breakMinutes: lengths.breakMinutes,
     timerColors: exportTimerColors(),
+    repeat: exportRepeatBook(),
+    theme: exportTheme(),
   };
 }
 
@@ -64,6 +68,8 @@ export function applyAccountPreferences(prefs: Partial<AccountPreferences>) {
   if (prefs.ambient) applyAmbientSettings(prefs.ambient);
   if (typeof prefs.focusAlert === "boolean") applyFocusAlertEnabled(prefs.focusAlert);
   if (prefs.timerColors) replaceTimerColors(prefs.timerColors);
+  if (prefs.repeat) replaceRepeatBook(prefs.repeat);
+  if (prefs.theme) applyTheme(prefs.theme);
 }
 
 export async function loadAccountPreferences(userId: string) {
@@ -74,7 +80,7 @@ export async function loadAccountPreferences(userId: string) {
     const parsed = readAccountPreferences(data.preferences);
     if (parsed && Object.keys(parsed).length > 0) return parsed;
   }
-  if (error && !missingPreferencesColumn(error)) return null;
+  if (error && !isMissingColumn(error, "preferences")) return null;
   const { data: journal, error: journalError } = await supabase
     .from("daily_journals")
     .select("body")
@@ -94,7 +100,7 @@ export async function saveAccountPreferences(userId: string, prefs: AccountPrefe
   if (!supabase) return false;
   const { error } = await supabase.from("profiles").update({ preferences: prefs }).eq("id", userId);
   if (!error) return true;
-  if (!missingPreferencesColumn(error)) return false;
+  if (!isMissingColumn(error, "preferences")) return false;
   const { error: journalError } = await supabase.from("daily_journals").upsert(
     {
       user_id: userId,

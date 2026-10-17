@@ -11,7 +11,7 @@ import {
 } from "@/lib/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-type TodoPatch = Partial<Pick<Todo, "status" | "focusMinutes">>;
+type TodoPatch = Partial<Pick<Todo, "status" | "focusMinutes" | "title" | "category" | "priority">>;
 
 function isTodoRow(value: unknown): value is {
   id: string;
@@ -142,18 +142,30 @@ export function useTodos() {
   const patch = useCallback(async (id: string, partial: TodoPatch) => {
     const supabase = createSupabaseBrowserClient();
     const profileId = getOrCreateProfileId();
-    if (!supabase || !profileId) return;
+    if (!supabase || !profileId) return false;
     const snapshot = todosRef.current;
-    const next = snapshot.map((todo) => (todo.id === id ? { ...todo, ...partial } : todo));
+    if (!snapshot.some((todo) => todo.id === id)) return false;
+    const applied: TodoPatch = { ...partial };
+    if (typeof applied.title === "string") {
+      const title = applied.title.trim();
+      if (!title) return false;
+      applied.title = title;
+    }
+    const next = snapshot.map((todo) => (todo.id === id ? { ...todo, ...applied } : todo));
     replace(next);
     const row: Record<string, string | number> = {};
-    if (partial.status) row.status = partial.status;
-    if (typeof partial.focusMinutes === "number") row.focus_minutes = partial.focusMinutes;
+    if (applied.status) row.status = applied.status;
+    if (typeof applied.focusMinutes === "number") row.focus_minutes = applied.focusMinutes;
+    if (applied.title) row.title = applied.title;
+    if (applied.category) row.category = applied.category;
+    if (applied.priority) row.priority = applied.priority;
     const { error: updateError } = await supabase.from("todos").update(row).eq("id", id).eq("user_id", profileId);
     if (updateError) {
       replace(snapshot);
       setError("할 일을 저장하지 못했습니다.");
+      return false;
     }
+    return true;
   }, [replace]);
 
   const add = useCallback(async (todo: Todo) => {

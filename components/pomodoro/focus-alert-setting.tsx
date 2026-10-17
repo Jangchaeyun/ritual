@@ -27,13 +27,13 @@ export function FocusAlertSetting() {
     <Surface className="mx-auto mt-5 w-full max-w-xl p-5" delay={0.04}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#eef3f8] text-[#3d5f7a] ring-1 ring-[#d5deea]">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-field text-accent ring-1 ring-line">
             {alert.enabled ? <Bell className="size-5" /> : <BellOff className="size-5" />}
           </span>
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold tracking-[0.18em] text-[#6f8f78]">ALERT</p>
-            <h2 className="mt-1 text-base font-semibold text-[#1c2430]">집중 종료 알림</h2>
-            <p className="mt-1 text-sm text-[#8a847c]">{statusCopy(alert.enabled, alert.permission)}</p>
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-accent">ALERT</p>
+            <h2 className="mt-1 text-base font-semibold text-ink">집중 종료 알림</h2>
+            <p className="mt-1 text-sm text-muted">{statusCopy(alert.enabled, alert.permission)}</p>
           </div>
         </div>
         <button
@@ -44,13 +44,14 @@ export function FocusAlertSetting() {
           disabled={blocked}
           onClick={() => void setFocusAlertEnabled(!alert.enabled)}
           className={cn(
-            "relative mt-1 h-7 w-12 shrink-0 rounded-full transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/20 disabled:cursor-not-allowed disabled:opacity-40",
-            alert.enabled ? "bg-[#1c2430]" : "bg-black/[0.06] ring-1 ring-black/[0.08]",
+            "relative mt-1 h-7 w-12 shrink-0 rounded-full transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 disabled:cursor-not-allowed disabled:opacity-40",
+            alert.enabled ? "bg-fill" : "bg-wash ring-1 ring-line",
           )}
         >
           <span
             className={cn(
-              "absolute top-0.5 size-6 rounded-full bg-white shadow transition",
+              "absolute top-0.5 size-6 rounded-full shadow transition",
+              alert.enabled ? "bg-ink" : "bg-card",
               alert.enabled ? "left-5" : "left-0.5",
             )}
           />

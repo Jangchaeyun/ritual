@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import type { ReactNode } from "react";
 
 export const panelClass =
-  "group relative overflow-hidden rounded-2xl border border-black/[0.06] bg-white shadow-[0_1px_1px_rgba(28,36,48,0.04),0_16px_40px_-28px_rgba(28,36,48,0.28)]";
+  "group relative overflow-hidden rounded-2xl border border-line bg-card shadow-panel";
 
 export function Surface({
   children,

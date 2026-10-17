@@ -1,3 +1,4 @@
+// Playback does not use these files. Cafe, forest, and campfire use the MP3 recordings in public/sounds.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -126,11 +127,7 @@ function wav(samples) {
 }
 
 mkdirSync(root, { recursive: true });
-for (const [name, build] of [
-  ["rain", rain],
-  ["cafe", cafe],
-  ["forest", forest],
-]) {
+for (const [name, build] of [["rain", rain]]) {
   const file = join(root, `${name}.wav`);
   writeFileSync(file, wav(normalize(crossfade(build()))));
   console.log(file);

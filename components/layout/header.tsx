@@ -4,6 +4,7 @@ import { useAccount } from "@/components/account-provider";
 import { useRoutine } from "@/components/routine-provider";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { AnimatePresence, motion } from "framer-motion";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { LogOut, Menu } from "lucide-react";
 import { useState, useSyncExternalStore } from "react";
 
@@ -75,27 +76,28 @@ export function Header({ onMenu }: { onMenu: () => void }) {
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-black/[0.05] bg-[#f3f0ea]/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-30 border-b border-line bg-paper/80 backdrop-blur-xl">
       <div className="flex h-[4.25rem] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             onClick={onMenu}
-            className="grid size-10 shrink-0 place-items-center rounded-full border border-black/[0.06] bg-white text-[#6f6a64] transition hover:text-[#1c2430] md:hidden"
+            className="grid size-10 shrink-0 place-items-center rounded-full border border-line bg-card text-soft transition hover:text-ink md:hidden"
             aria-label="메뉴 열기"
           >
             <Menu className="size-5" />
           </button>
           <div className="min-w-0">
-            <p className="truncate text-[11px] tracking-[0.16em] text-[#8a847c]">{greeting || "오늘"}</p>
-            <p className="truncate text-sm font-medium tracking-[-0.01em] text-[#1c2430] sm:hidden">{clock.compact || "오늘"}</p>
-            <p className="hidden truncate text-sm font-medium tracking-[-0.01em] text-[#1c2430] sm:block">{todayLabel || "오늘"}</p>
+            <p className="truncate text-[11px] tracking-[0.16em] text-muted">{greeting || "오늘"}</p>
+            <p className="truncate text-sm font-medium tracking-[-0.01em] text-ink sm:hidden">{clock.compact || "오늘"}</p>
+            <p className="hidden truncate text-sm font-medium tracking-[-0.01em] text-ink sm:block">{todayLabel || "오늘"}</p>
           </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <ThemeToggle />
           {ready ? (
-            <span className="relative inline-flex items-center gap-1.5 rounded-full border border-black/[0.06] bg-white px-2.5 py-1.5 text-xs font-medium text-[#1c2430] sm:px-3">
+            <span className="relative inline-flex items-center gap-1.5 rounded-full border border-line bg-card px-2.5 py-1.5 text-xs font-medium text-ink sm:px-3">
               <motion.span
                 key={streakPulse}
                 aria-hidden
@@ -135,7 +137,7 @@ export function Header({ onMenu }: { onMenu: () => void }) {
                 {streakPulse > 0 ? (
                   <motion.span
                     key={streakPulse}
-                    className="pointer-events-none absolute -top-3 right-2 text-[11px] font-semibold text-[#c4846a]"
+                    className="pointer-events-none absolute -top-3 right-2 text-[11px] font-semibold text-clay"
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: [0, 1, 0], y: -14 }}
                     exit={{ opacity: 0 }}
@@ -147,17 +149,17 @@ export function Header({ onMenu }: { onMenu: () => void }) {
               </AnimatePresence>
             </span>
           ) : (
-            <span className="h-8 w-24 animate-pulse rounded-full bg-black/[0.06]" />
+            <span className="h-8 w-24 animate-pulse rounded-full bg-wash" />
           )}
 
           {ready ? (
             <div className="flex items-center gap-2.5">
               <div className="hidden text-right sm:block">
-                <p className="text-sm font-medium text-[#1c2430]">{profile.name}</p>
-                <p className="text-[11px] text-[#8a847c]">{profile.role}</p>
+                <p className="text-sm font-medium text-ink">{profile.name}</p>
+                <p className="text-[11px] text-muted">{profile.role}</p>
               </div>
               <div
-                className="grid size-9 place-items-center rounded-full bg-[#1c2430] text-[11px] font-medium tracking-tight text-white"
+                className="grid size-9 place-items-center rounded-full bg-fill text-[11px] font-medium tracking-tight text-on-fill"
                 aria-hidden
               >
                 {profile.initials}
@@ -169,7 +171,7 @@ export function Header({ onMenu }: { onMenu: () => void }) {
                   onClick={() => {
                     void createSupabaseBrowserClient()?.auth.signOut();
                   }}
-                  className="grid size-9 place-items-center rounded-full text-[#8a847c] transition hover:bg-white hover:text-[#1c2430]"
+                  className="grid size-9 place-items-center rounded-full text-muted transition hover:bg-card hover:text-ink"
                   aria-label="로그아웃"
                 >
                   <LogOut className="size-4" />
@@ -177,7 +179,7 @@ export function Header({ onMenu }: { onMenu: () => void }) {
               ) : null}
             </div>
           ) : (
-            <span className="size-10 animate-pulse rounded-full bg-black/[0.06]" />
+            <span className="size-10 animate-pulse rounded-full bg-wash" />
           )}
         </div>
       </div>

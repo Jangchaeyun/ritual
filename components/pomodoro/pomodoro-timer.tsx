@@ -43,11 +43,11 @@ function Ring({
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
         <defs>
           <linearGradient id={rawId} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#1c2430" />
-            <stop offset="100%" stopColor="#6f93b8" />
+            <stop offset="0%" stopColor="var(--ink)" />
+            <stop offset="100%" stopColor="var(--ink)" />
           </linearGradient>
         </defs>
-        <circle cx={center} cy={center} r={radius} fill="none" stroke="rgb(30 41 59)" strokeWidth={stroke} />
+        <circle cx={center} cy={center} r={radius} fill="none" stroke="var(--track)" strokeWidth={stroke} />
         <motion.circle
           cx={center}
           cy={center}
@@ -66,7 +66,7 @@ function Ring({
         {burstToken > 0 && !reduce ? (
           <motion.span
             key={burstToken}
-            className="pointer-events-none absolute inset-3 rounded-full border border-[#d9d0e8]"
+            className="pointer-events-none absolute inset-3 rounded-full border border-ink/25"
             initial={{ opacity: 0.9, scale: 0.86 }}
             animate={{ opacity: 0, scale: 1.08 }}
             exit={{ opacity: 0 }}
@@ -116,31 +116,31 @@ export function PomodoroTimer({ variant = "card", delay = 0 }: { variant?: "card
     <Surface delay={delay} className={cn("flex h-full flex-col p-5", hero && "mx-auto w-full max-w-xl")}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-black/[0.04] text-[#1c2430]">
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-wash text-ink">
             <Timer className="size-4" />
           </span>
           <div>
-            <h2 className="text-base font-medium tracking-[-0.02em] text-[#1c2430]">포모도로</h2>
-            <p className="mt-0.5 text-xs text-[#8a847c]">
+            <h2 className="text-base font-medium tracking-[-0.02em] text-ink">포모도로</h2>
+            <p className="mt-0.5 text-xs text-muted">
               {focusMinutes}분 작업 · {breakMinutes}분 휴식
             </p>
           </div>
         </div>
-        <p className="rounded-full bg-black/[0.04] px-2.5 py-1 font-mono text-xs text-[#1c2430]">
+        <p className="rounded-full bg-wash px-2.5 py-1 font-mono text-xs text-ink">
           {pomodoro.completedFocus}/{pomodoro.targetFocus}
         </p>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-1 rounded-full bg-black/[0.04] p-1" role="group" aria-label="타이머 모드">
+      <div className="mt-4 grid grid-cols-2 gap-1 rounded-full bg-wash p-1" role="group" aria-label="타이머 모드">
         <button
           type="button"
           aria-pressed={pomodoro.phase === "focus"}
           onClick={() => setPomodoroPhase("focus")}
           className={cn(
-            "rounded-full px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/25",
+            "rounded-full px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/25",
             pomodoro.phase === "focus"
-              ? "bg-[#1c2430] text-white"
-              : "text-[#6f6a64] hover:text-[#1c2430]",
+              ? "bg-fill text-on-fill"
+              : "text-soft hover:text-ink",
           )}
         >
           작업 {focusMinutes}분
@@ -150,10 +150,10 @@ export function PomodoroTimer({ variant = "card", delay = 0 }: { variant?: "card
           aria-pressed={pomodoro.phase === "break"}
           onClick={() => setPomodoroPhase("break")}
           className={cn(
-            "rounded-full px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/25",
+            "rounded-full px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/25",
             pomodoro.phase === "break"
-              ? "bg-[#1c2430] text-white"
-              : "text-[#6f6a64] hover:text-[#1c2430]",
+              ? "bg-fill text-on-fill"
+              : "text-soft hover:text-ink",
           )}
         >
           휴식 {breakMinutes}분
@@ -161,7 +161,7 @@ export function PomodoroTimer({ variant = "card", delay = 0 }: { variant?: "card
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <label className="block text-xs text-[#8a847c]">
+        <label className="block text-xs text-muted">
           작업 분
           <input
             type="number"
@@ -171,10 +171,10 @@ export function PomodoroTimer({ variant = "card", delay = 0 }: { variant?: "card
             aria-label="작업 시간(분)"
             value={focusMinutes}
             onChange={(event) => setPomodoroLengths(Number(event.target.value), breakMinutes)}
-            className="mt-1 w-full rounded-xl border border-black/[0.06] bg-[#faf8f5] px-3 py-2 text-sm text-[#1c2430] outline-none ring-[#1c2430]/15 focus:ring-2"
+            className="mt-1 w-full rounded-xl border border-line bg-field px-3 py-2 text-sm text-ink outline-none ring-ink/15 focus:ring-2"
           />
         </label>
-        <label className="block text-xs text-[#8a847c]">
+        <label className="block text-xs text-muted">
           휴식 분
           <input
             type="number"
@@ -184,7 +184,7 @@ export function PomodoroTimer({ variant = "card", delay = 0 }: { variant?: "card
             aria-label="휴식 시간(분)"
             value={breakMinutes}
             onChange={(event) => setPomodoroLengths(focusMinutes, Number(event.target.value))}
-            className="mt-1 w-full rounded-xl border border-black/[0.06] bg-[#faf8f5] px-3 py-2 text-sm text-[#1c2430] outline-none ring-[#1c2430]/15 focus:ring-2"
+            className="mt-1 w-full rounded-xl border border-line bg-field px-3 py-2 text-sm text-ink outline-none ring-ink/15 focus:ring-2"
           />
         </label>
       </div>
@@ -201,10 +201,10 @@ export function PomodoroTimer({ variant = "card", delay = 0 }: { variant?: "card
             type="button"
             onClick={() => setPomodoroLengths(preset.focus, preset.rest)}
             className={cn(
-              "rounded-full border px-2.5 py-1 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/20",
+              "rounded-full border px-2.5 py-1 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20",
               focusMinutes === preset.focus && breakMinutes === preset.rest
-                ? "border-[#1c2430] bg-[#1c2430] text-white"
-                : "border-black/[0.08] text-[#6f6a64] hover:border-[#1c2430]/25",
+                ? "border-fill bg-fill text-on-fill"
+                : "border-line text-soft hover:border-ink/25",
             )}
           >
             {preset.label}
@@ -212,7 +212,7 @@ export function PomodoroTimer({ variant = "card", delay = 0 }: { variant?: "card
         ))}
       </div>
       {pomodoro.running ? (
-        <p className="mt-2 text-xs text-[#8a847c]">진행 중인 타이머는 그대로 두고, 바꾼 시간은 다음 구간부터 적용됩니다.</p>
+        <p className="mt-2 text-xs text-muted">진행 중인 타이머는 그대로 두고, 바꾼 시간은 다음 구간부터 적용됩니다.</p>
       ) : null}
 
       <div
@@ -227,7 +227,7 @@ export function PomodoroTimer({ variant = "card", delay = 0 }: { variant?: "card
         <div className="absolute inset-0 grid place-items-center">
           <p
             className={cn(
-              "font-mono font-semibold tracking-tight text-[#1c2430] tabular-nums",
+              "font-mono font-semibold tracking-tight text-ink tabular-nums",
               hero ? "text-5xl" : "text-4xl",
             )}
             aria-live="polite"
@@ -237,13 +237,13 @@ export function PomodoroTimer({ variant = "card", delay = 0 }: { variant?: "card
         </div>
       </div>
 
-      <p className="mt-4 text-center text-sm text-[#8a847c]">
+      <p className="mt-4 text-center text-sm text-muted">
         {statusCopy(pomodoro.phase, pomodoro.running, remainingSec, pomodoro.durationSec, focusMinutes, breakMinutes)}
       </p>
-      <p className="mt-1 truncate text-center text-xs text-[#3d5f7a]/80">
+      <p className="mt-1 truncate text-center text-xs text-accent/80">
         {linked ? `${linked.title} · 누적 ${linked.focusMinutes}분` : "연결된 작업 없음"}
       </p>
-      <p className="mt-2 min-h-5 text-center text-sm text-[#3d5f7a]" aria-live="polite">
+      <p className="mt-2 min-h-5 text-center text-sm text-accent" aria-live="polite">
         {notice}
       </p>
 
@@ -253,7 +253,7 @@ export function PomodoroTimer({ variant = "card", delay = 0 }: { variant?: "card
             key={index}
             className={cn(
               "h-1.5 flex-1 rounded-full",
-              index < pomodoro.completedFocus ? "bg-[#1c2430]" : "bg-black/[0.06]",
+              index < pomodoro.completedFocus ? "bg-ink" : "bg-wash",
             )}
           />
         ))}
@@ -263,7 +263,7 @@ export function PomodoroTimer({ variant = "card", delay = 0 }: { variant?: "card
         <button
           type="button"
           onClick={startPausePomodoro}
-          className="inline-flex items-center gap-2 rounded-full bg-[#1c2430] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/20"
+          className="inline-flex items-center gap-2 rounded-full bg-fill px-4 py-2 text-sm font-semibold text-on-fill shadow-sm transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20"
         >
           {pomodoro.running ? <Pause className="size-4" /> : <Play className="size-4" />}
           {pomodoro.running ? "일시정지" : resume ? "이어하기" : "시작"}
@@ -271,7 +271,7 @@ export function PomodoroTimer({ variant = "card", delay = 0 }: { variant?: "card
         <button
           type="button"
           onClick={resetPomodoro}
-          className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white px-3.5 py-2 text-sm text-[#1c2430] transition hover:border-[#1c2430]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/20"
+          className="inline-flex items-center gap-2 rounded-full border border-line bg-card px-3.5 py-2 text-sm text-ink transition hover:border-ink/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20"
         >
           <RotateCcw className="size-4" />
           리셋
@@ -279,7 +279,7 @@ export function PomodoroTimer({ variant = "card", delay = 0 }: { variant?: "card
         <button
           type="button"
           onClick={skipPomodoroPhase}
-          className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white px-3.5 py-2 text-sm text-[#1c2430] transition hover:border-[#1c2430]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/20"
+          className="inline-flex items-center gap-2 rounded-full border border-line bg-card px-3.5 py-2 text-sm text-ink transition hover:border-ink/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20"
         >
           <SkipForward className="size-4" />
           건너뛰기
@@ -287,10 +287,10 @@ export function PomodoroTimer({ variant = "card", delay = 0 }: { variant?: "card
       </div>
 
       {hero ? (
-        <div className="mt-6 border-t border-black/[0.06] pt-4">
-          <h3 className="text-sm font-semibold text-[#1c2430]">세션 기록</h3>
+        <div className="mt-6 border-t border-line pt-4">
+          <h3 className="text-sm font-semibold text-ink">세션 기록</h3>
           {pomodoro.sessions.filter((session) => !isTrackedFocus(session.todoId)).length === 0 ? (
-            <p className="mt-2 text-sm text-[#8a847c]">완료된 세션이 아직 없습니다.</p>
+            <p className="mt-2 text-sm text-muted">완료된 세션이 아직 없습니다.</p>
           ) : (
             <ul className="mt-3 space-y-2">
               {pomodoro.sessions
@@ -303,11 +303,11 @@ export function PomodoroTimer({ variant = "card", delay = 0 }: { variant?: "card
                 const label = purpose === "study" ? "공부" : purpose === "work" ? "근무" : session.phase === "focus" ? "집중" : "휴식";
                 return (
                   <li key={session.id} className="flex items-center justify-between gap-3 text-sm">
-                    <span className="min-w-0 truncate text-[#1c2430]">
+                    <span className="min-w-0 truncate text-ink">
                       {label}
                       {task ? ` · ${task.title}` : ""}
                     </span>
-                    <span className="shrink-0 font-mono text-xs text-[#8a847c]">
+                    <span className="shrink-0 font-mono text-xs text-muted">
                       {session.minutes}분 · {formatSessionTime(session.completedAt)}
                     </span>
                   </li>

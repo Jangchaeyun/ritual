@@ -1,11 +1,8 @@
+import { recordedMinutes } from "@/lib/hour-timeline";
 import { isProfileId } from "@/lib/supabase-profile";
-import { requireSupabaseUser } from "@/lib/supabase/session";
+import { isMissingColumn } from "@/lib/supabase-error";
+import { requireSupabaseUser, supabaseUserError } from "@/lib/supabase/session";
 import type { PomodoroSession } from "@/lib/types";
-
-function missingStartedColumn(error: { code?: string; message?: string } | null) {
-  if (!error) return false;
-  return error.code === "42703" || error.code === "PGRST204" || /started_at/i.test(error.message ?? "");
-}
 
 function toSession(value: unknown): PomodoroSession | null {
   if (!value || typeof value !== "object") return null;
@@ -34,7 +31,7 @@ function toSession(value: unknown): PomodoroSession | null {
 export async function GET() {
   const { supabase, userId, status } = await requireSupabaseUser();
   if (!supabase || !userId) {
-    return Response.json({ error: status === 503 ? "supabase_unconfigured" : "unauthorized" }, { status });
+    return supabaseUserError(status === 503 ? 503 : 401);
   }
 
   const columns = "id, phase, minutes, todo_id, completed_at, started_at";
@@ -49,7 +46,7 @@ export async function GET() {
     .limit(20);
   data = first.data;
   error = first.error;
-  if (error && missingStartedColumn(error)) {
+  if (error && isMissingColumn(error, "started_at")) {
     const retry = await supabase
       .from("pomodoro_sessions")
       .select(fallback)
@@ -69,7 +66,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const { supabase, userId, status } = await requireSupabaseUser();
   if (!supabase || !userId) {
-    return Response.json({ error: status === 503 ? "supabase_unconfigured" : "unauthorized" }, { status });
+    return supabaseUserError(status === 503 ? 503 : 401);
   }
   const body: unknown = await request.json().catch(() => null);
   if (!body || typeof body !== "object") return Response.json({ error: "invalid_body" }, { status: 400 });
@@ -105,11 +102,68 @@ export async function POST(request: Request) {
     ...(startedAt == null ? {} : { started_at: new Date(startedAt).toISOString() }),
   };
   const inserted = await supabase.from("pomodoro_sessions").insert(payload as typeof base);
-  if (inserted.error && startedAt != null && missingStartedColumn(inserted.error)) {
+  if (inserted.error && startedAt != null && isMissingColumn(inserted.error, "started_at")) {
     const retry = await supabase.from("pomodoro_sessions").insert(base);
     if (retry.error) return Response.json({ error: retry.error.message }, { status: 500 });
     return Response.json({ ok: true });
   }
   if (inserted.error) return Response.json({ error: inserted.error.message }, { status: 500 });
+  return Response.json({ ok: true });
+}
+
+export async function PATCH(request: Request) {
+  const { supabase, userId, status } = await requireSupabaseUser();
+  if (!supabase || !userId) {
+    return supabaseUserError(status === 503 ? 503 : 401);
+  }
+  const body: unknown = await request.json().catch(() => null);
+  if (!body || typeof body !== "object") return Response.json({ error: "invalid_body" }, { status: 400 });
+  const row = body as Record<string, unknown>;
+  const startedAt = typeof row.startedAt === "number" && Number.isFinite(row.startedAt) ? row.startedAt : null;
+  const completedAt = typeof row.completedAt === "number" && Number.isFinite(row.completedAt) ? row.completedAt : null;
+  if (
+    !isProfileId(row.id) ||
+    startedAt == null ||
+    completedAt == null ||
+    completedAt <= startedAt ||
+    (row.todoId !== null && typeof row.todoId !== "string")
+  ) {
+    return Response.json({ error: "invalid_body" }, { status: 400 });
+  }
+  const minutes = recordedMinutes(startedAt, completedAt);
+  if (minutes <= 0) return Response.json({ error: "invalid_body" }, { status: 400 });
+  const base = {
+    minutes,
+    todo_id: typeof row.todoId === "string" ? row.todoId : null,
+    completed_at: new Date(completedAt).toISOString(),
+  };
+  const payload = { ...base, started_at: new Date(startedAt).toISOString() };
+  const updated = await supabase
+    .from("pomodoro_sessions")
+    .update(payload)
+    .eq("id", row.id)
+    .eq("user_id", userId)
+    .select("id");
+  if (updated.error && isMissingColumn(updated.error, "started_at")) {
+    const retry = await supabase.from("pomodoro_sessions").update(base).eq("id", row.id).eq("user_id", userId).select("id");
+    if (retry.error) return Response.json({ error: retry.error.message }, { status: 500 });
+    if (!retry.data?.length) return Response.json({ error: "not_found" }, { status: 404 });
+    return Response.json({ ok: true });
+  }
+  if (updated.error) return Response.json({ error: updated.error.message }, { status: 500 });
+  if (!updated.data?.length) return Response.json({ error: "not_found" }, { status: 404 });
+  return Response.json({ ok: true });
+}
+
+export async function DELETE(request: Request) {
+  const { supabase, userId, status } = await requireSupabaseUser();
+  if (!supabase || !userId) {
+    return supabaseUserError(status === 503 ? 503 : 401);
+  }
+  const id = new URL(request.url).searchParams.get("id");
+  if (!isProfileId(id)) return Response.json({ error: "invalid_body" }, { status: 400 });
+  const deleted = await supabase.from("pomodoro_sessions").delete().eq("id", id).eq("user_id", userId).select("id");
+  if (deleted.error) return Response.json({ error: deleted.error.message }, { status: 500 });
+  if (!deleted.data?.length) return Response.json({ error: "not_found" }, { status: 404 });
   return Response.json({ ok: true });
 }

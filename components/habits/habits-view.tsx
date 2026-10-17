@@ -34,10 +34,10 @@ export function HabitsView() {
                 aria-pressed={filter === item.id}
                 onClick={() => setFilter(item.id)}
                 className={cn(
-                  "rounded-full px-3 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c2430]/20",
+                  "rounded-full px-3 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20",
                   filter === item.id
-                    ? "bg-[#1c2430] text-white"
-                    : "bg-white text-[#6f6a64] ring-1 ring-black/[0.06] hover:text-[#1c2430]",
+                    ? "bg-fill text-on-fill"
+                    : "bg-card text-soft ring-1 ring-line hover:text-ink",
                 )}
               >
                 {item.label}
@@ -47,7 +47,7 @@ export function HabitsView() {
           <HabitChecklist manage category={filter} />
         </div>
       ) : (
-        <div className="h-80 animate-pulse rounded-2xl border border-black/[0.06] bg-[#f3f0ea]" />
+        <div className="h-80 animate-pulse rounded-2xl border border-line bg-paper" />
       )}
     </div>
   );

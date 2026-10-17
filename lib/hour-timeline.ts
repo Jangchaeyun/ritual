@@ -21,12 +21,17 @@ export type TimelineHour = {
 
 const SEOUL_OFFSET_MS = 9 * 60 * 60 * 1000;
 
+/** 1초 미만은 0분입니다. 그 외에는 밀리초를 분으로 반올림하고, 최소 1분으로 올립니다. */
 export function recordedMinutes(start: number, end: number) {
   const elapsed = end - start;
   if (elapsed < 1000) return 0;
   return Math.max(1, Math.round(elapsed / 60_000));
 }
 
+/**
+ * 시작 시각이 없거나 끝 시각보다 늦으면, 저장된 분 길이로 시작 시각을 되돌립니다.
+ * 시간표는 이 구간을 시 단위로 나누되, 색은 10분 칸이 아니라 실제 분에 맞춥니다.
+ */
 export function sessionInterval(session: Pick<PomodoroSession, "startedAt" | "completedAt" | "minutes">) {
   const end = session.completedAt;
   const stored = session.startedAt;
@@ -199,6 +204,46 @@ export type DaySpan = {
   end: number;
   open: boolean;
 };
+
+export type HourPaint = {
+  key: string;
+  todoId: string | null;
+  title: string | null;
+  startRatio: number;
+  endRatio: number;
+  lane: number;
+  laneCount: number;
+};
+
+const HOUR_MS = 60 * 60 * 1000;
+
+export function hourPaints(spans: DaySpan[], dateKey: string, hour: number): HourPaint[] {
+  const hourStart = seoulHourStart(dateKey, hour);
+  const pieces = spans.flatMap((span) => {
+    const start = Math.max(span.start, hourStart);
+    const end = Math.min(span.end, hourStart + HOUR_MS);
+    if (end <= start) return [];
+    return [{
+      key: span.key,
+      todoId: span.todoId,
+      title: span.title,
+      startRatio: (start - hourStart) / HOUR_MS,
+      endRatio: (end - hourStart) / HOUR_MS,
+    }];
+  });
+  const lanes: { startRatio: number; endRatio: number }[][] = [];
+  const placed = pieces.map((piece) => {
+    let lane = lanes.findIndex((row) => row.every((other) => other.endRatio <= piece.startRatio || other.startRatio >= piece.endRatio));
+    if (lane < 0) {
+      lane = lanes.length;
+      lanes.push([]);
+    }
+    lanes[lane].push(piece);
+    return { ...piece, lane };
+  });
+  const laneCount = Math.max(1, lanes.length);
+  return placed.map((piece) => ({ ...piece, laneCount }));
+}
 
 export function buildDaySpans(input: {
   dateKey: string;
